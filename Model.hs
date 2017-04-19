@@ -15,6 +15,7 @@
 
 import Control.Lens.TH
 import Control.Lens
+import Data.Bifunctor
 
 ------------------- lib ---------------
 
@@ -51,14 +52,13 @@ type family Zone a
 
 type family Match a
 
-class Matching a where
-  match :: a -> Match a -> Bool
 
 type Interface a = (Eq (Vet a), Eq (User a),Eq (Slot a), Eq (Place a),
   Include (Zone a) (Place a),
   Include (Zone a) (Zone a),
   Include (Slot a) (Slot a),
-  Matching (User a), Matching (Vet a)
+  Include (Match (User a)) (User a),
+  Include (Match (Vet a)) (Vet a)
                    )
 
 -- | kind level Phase
@@ -111,11 +111,20 @@ data Query a = Query
   ,   _vetWindow  :: Match (Vet a) -- ^ vet selection
   }
 
+data Unmatching = UnmatchedTime | UnmatchedPlace | UnmatchedUser | UnmatchedVet
 
-check :: Interface a => Query a -> Record b a -> Bool
-check (Query s z u v) (Offer v' l s') = z `include` l && v' `match` v && s `include` s'
-check q@(Query s z u v) (Appointment u' o) = u' `match` u && check q o
-check q (Visit _ x) = check q x
+encodeUnmatching x y e = if x `include` y then Right () else Left e
+
+check :: Interface a => Query a -> Record b a ->  Either Unmatching ()
+check (Query s z u v) (Offer v' l s') = do
+  encodeUnmatching z l UnmatchedPlace
+  encodeUnmatching v v' UnmatchedVet
+  encodeUnmatching s s' UnmatchedTime
+
+check q@(Query s z u v) (Appointment u' o) = encodeUnmatching u u' UnmatchedUser >> check q o
+
+check q (Visit _ x)  = check q x
+
 check q (Failure _ x) = check q x
 
 
@@ -130,21 +139,30 @@ data World f a = World
   }
 
 makeLenses ''World
+
 class Modify f where
   type Ix f
   insert :: b -> f b -> (f b, Ix f)
   delete :: Ix f  -> f b -> Maybe (f b)
   asList :: f b -> [(Ix f, b)]
 
-type DeltaWorld f a = World f a -> Maybe (World f a)
+data Problem = IndexNotFound | Unmatched Unmatching
+
+type DeltaWorld f a = World f a -> Either Problem (World f a)
 
 newOffer :: (Interface a, Modify f) => Vet a -> Location Booking a -> Slot a -> DeltaWorld f a
 newOffer v l s w = let
   o = Offer v l s in
-  case check (w ^. select) o of
-    False -> Nothing
-    True -> Just $ over offers (fst . insert o) w
-{-
+  first Unmatched $ over offers (fst . insert o) w <$ check (w ^. select) o
+
+dropOffer :: (Interface a, Modify f) => Ix f -> DeltaWorld f a
+dropOffer i w = case delete i (w ^. offers) of
+                  Nothing -> Left IndexNotFound
+                  Just os -> Riht $ offers .~ os $ w
+
+-- bookOffer :: (Interface a, Modify f) => Ix f -> DeltaWorld f a
+
+      {-
 data Modification = Book | Report | Blow
 
 type family Transaction (m :: Modification) a
