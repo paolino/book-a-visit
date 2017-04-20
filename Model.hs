@@ -31,28 +31,23 @@ tbd = error "to be implemented"
 
 
 -- | veterinary
-type family Vet a
+data family Vet a
 
 -- | pet owner
-type family User a
-
--- | absolute time
-type family Time a
+data family User a
 
 -- | time span
-type family Delta a
 
--- | time intervals
-data Slot a = Slot (Time a) (Delta a)
+data family Slot a
 
 class Include a b where
   include :: a -> b -> Bool
 
-type family Place a
+data family Place a
 
-type family Zone a
+data family Zone a
 
-type family Match a
+data family Match a
 
 
 type Interface a = (Eq (Vet a), Eq (User a),Eq (Slot a), Eq (Place a),
@@ -60,7 +55,9 @@ type Interface a = (Eq (Vet a), Eq (User a),Eq (Slot a), Eq (Place a),
   Include (Zone a) (Zone a),
   Include (Slot a) (Slot a),
   Include (Match (User a)) (User a),
-  Include (Match (Vet a)) (Vet a)
+  Include (Match (Vet a)) (Vet a),
+  Monoid (Slot a),Monoid(Zone a),Monoid (Match (User a)),Monoid (Match (Vet a))
+
                    )
 
 -- | kind level Phase
@@ -113,6 +110,11 @@ data Query a = Query
   ,   _vetWindow  :: Match (Vet a) -- ^ vet selection
   }
 
+instance Interface a => Monoid (Query a) where
+  Query a b c d `mappend` Query a' b' c' d' = Query (a `mappend` a') (b `mappend` b') (c `mappend` c')(d `mappend` d')
+  mempty = Query mempty mempty mempty mempty
+
+
 data Unmatching = UnmatchedTime | UnmatchedPlace | UnmatchedUser | UnmatchedVet
 
 encodeUnmatching x y e = if x `include` y then Right () else Left e
@@ -137,8 +139,18 @@ data World f a = World
   ,   _appointments :: Map f Waiting a
   ,   _visits :: Map f Due a
   ,   _failures :: Map f Due a
-  ,   _select :: Query a -- ^ why this is the world
+  ,   _select :: Maybe (Query a) -- ^ why this is the world
   }
+
+instance (Interface a , Monoid (Map f Booking a),Monoid (Map f Waiting a), Monoid (Map f Due a)) => Monoid (World f a) where
+  mempty = World mempty mempty mempty mempty Nothing
+  World s a v f q `mappend` World s' a' v' f' q' =
+    World   (s `mappend` s')
+            (a `mappend` a')
+            (v `mappend` v')
+            (f `mappend` f')
+            (q `mappend` q')
+
 
 makeLenses ''World
 
@@ -157,7 +169,8 @@ type DeltaWorld f a = World f a -> Either Problem (World f a)
 newSupply :: (Interface a, Modify f) => Vet a -> Location Booking a -> Slot a -> DeltaWorld f a
 newSupply v l s w = let
   o = Supply v l s in
-  first Unmatched $ over supplies (fst . insert o) w <$ check (w ^. select) o
+  first Unmatched $ over supplies (fst . insert o) w <$
+    maybe (Right ()) (flip check o) (w ^. select)
 
 -- | drop an unbooked supply
 dropSupply :: (Interface a, Modify f) => Ix f -> DeltaWorld f a
