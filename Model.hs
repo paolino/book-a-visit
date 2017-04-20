@@ -16,6 +16,7 @@
 import Control.Lens.TH
 import Control.Lens
 import Data.Bifunctor
+import Data.Maybe
 
 ------------------- lib ---------------
 
@@ -65,39 +66,39 @@ type Interface a = (Eq (Vet a), Eq (User a),Eq (Slot a), Eq (Place a),
 data Phase = Booking | Booked | Waiting | Due
 
 data Location (b :: Phase) a where
-  -- | By the structure, offering and taking
+  -- | By the structure, supplying and taking
   Clinic :: Place a ->  Location b a
-  -- | Home offering, inside a zone
-  HomeOffer :: Zone a -> Location Booking a
+  -- | Home supplying, inside a zone
+  HomeSupply :: Zone a -> Location Booking a
   -- | Home taking
   Home :: Place a -> Location Booked a
-  -- | At clinic or home offering
-  AnyOffer :: Place a -> Zone a -> Location Booking a
+  -- | At clinic or home supplying
+  AnySupply :: Place a -> Zone a -> Location Booking a
 
 instance (Include (Zone a) (Zone a), Include (Zone a) (Place a), c ~ Zone a ) => Include c (Location b a) where
   z `include` Clinic p = z `include` p
   z `include` Home p = z `include` p
-  z `include` HomeOffer p = z `include` p
-  z `include` AnyOffer p z' = z `include` p || z `include` z'
+  z `include` HomeSupply p = z `include` p
+  z `include` AnySupply p z' = z `include` p || z `include` z'
 
 instance Interface a => Valid (Location Booking a, Location Booked a) where
   valid (Clinic p, Clinic p') = p == p'
-  valid (HomeOffer z, Home p) = z `include` p
-  valid (AnyOffer p z, Home p') = z `include` p'
-  valid (AnyOffer p z, Clinic p') = p == p'
+  valid (HomeSupply z, Home p) = z `include` p
+  valid (AnySupply p z, Home p') = z `include` p'
+  valid (AnySupply p z, Clinic p') = p == p'
 
 type family Feedback a
 
 type family Justification a
 
 data Record (b :: Phase) a where
-  Offer :: Vet a -> Location b a -> Slot a -> Record b a
+  Supply :: Vet a -> Location b a -> Slot a -> Record b a
   Appointment :: User a -> Record Booked a -> Record Waiting a
   Visit :: Feedback a -> Record Booked a -> Record Due a
   Failure :: Justification a -> Record Booked a -> Record Due a
 
 instance Interface a => Valid (Record Booked a, Record Booking a) where
-  valid (Offer a l d , Offer a' l' d') = a == a' && d == d' && valid (l',l)
+  valid (Supply a l d , Supply a' l' d') = a == a' && d == d' && valid (l',l)
 
 instance Interface a => Valid (Record Waiting a, Record Booking a) where
   valid (Appointment _ r, r') = valid (r,r')
@@ -116,7 +117,7 @@ data Unmatching = UnmatchedTime | UnmatchedPlace | UnmatchedUser | UnmatchedVet
 encodeUnmatching x y e = if x `include` y then Right () else Left e
 
 check :: Interface a => Query a -> Record b a ->  Either Unmatching ()
-check (Query s z u v) (Offer v' l s') = do
+check (Query s z u v) (Supply v' l s') = do
   encodeUnmatching z l UnmatchedPlace
   encodeUnmatching v v' UnmatchedVet
   encodeUnmatching s s' UnmatchedTime
@@ -131,7 +132,7 @@ check q (Failure _ x) = check q x
 type Map f (b :: Phase) a = f (Record b a)
 
 data World f a = World
-  {   _offers :: Map f Booking a
+  {   _supplies :: Map f Booking a
   ,   _appointments :: Map f Waiting a
   ,   _visits :: Map f Due a
   ,   _failures :: Map f Due a
@@ -141,26 +142,38 @@ data World f a = World
 makeLenses ''World
 
 class Modify f where
-  type Ix f
+  data Ix f
+  get :: Ix f -> f b -> Maybe b
   insert :: b -> f b -> (f b, Ix f)
   delete :: Ix f  -> f b -> Maybe (f b)
-  asList :: f b -> [(Ix f, b)]
+  -- asList :: f b -> [(Ix f, b)]
 
-data Problem = IndexNotFound | Unmatched Unmatching
+data Problem = IndexNotFound | Unmatched Unmatching | InvalidLocationSelection | WrongTransition
 
 type DeltaWorld f a = World f a -> Either Problem (World f a)
 
-newOffer :: (Interface a, Modify f) => Vet a -> Location Booking a -> Slot a -> DeltaWorld f a
-newOffer v l s w = let
-  o = Offer v l s in
-  first Unmatched $ over offers (fst . insert o) w <$ check (w ^. select) o
+-- | start a new supply
+newSupply :: (Interface a, Modify f) => Vet a -> Location Booking a -> Slot a -> DeltaWorld f a
+newSupply v l s w = let
+  o = Supply v l s in
+  first Unmatched $ over supplies (fst . insert o) w <$ check (w ^. select) o
 
-dropOffer :: (Interface a, Modify f) => Ix f -> DeltaWorld f a
-dropOffer i w = case delete i (w ^. offers) of
+-- | drop an unbooked supply
+dropSupply :: (Interface a, Modify f) => Ix f -> DeltaWorld f a
+dropSupply i w = case delete i (w ^. supplies) of
                   Nothing -> Left IndexNotFound
-                  Just os -> Riht $ offers .~ os $ w
+                  Just os -> Right $ supplies .~ os $ w
 
--- bookOffer :: (Interface a, Modify f) => Ix f -> DeltaWorld f a
+-- | book a supply moving it to an appointment
+bookSupply :: (Interface a, Modify f) => Ix f -> User a -> Location Booked a -> DeltaWorld f a
+bookSupply i u l w = case get i (w ^. supplies)  of
+                       Nothing -> Left IndexNotFound
+                       Just x@(Supply v l' s) -> let
+                            a = Appointment u (Supply v l s)
+                            in case valid (a,x) of
+                                True -> Right . over supplies (fromJust . delete i) . over appointments (fst . insert a) $ w
+                                False -> Left InvalidLocationSelection
+
 
       {-
 data Modification = Book | Report | Blow
@@ -169,7 +182,7 @@ type family Transaction (m :: Modification) a
 
 type instance Book a = (Off
 
-data Action a = Insert (Offer Booking a) |  Drop (Offer Booking a)  | Book (Offer Booking a) (
+data Action a = Insert (Supply Booking a) |  Drop (Supply Booking a)  | Book (Supply Booking a) (
 
 data Select a = Select
   {   _bySlot :: Slot a
@@ -179,7 +192,7 @@ data Select a = Select
   }
 
 makeLenses ''Visit
-makeLenses ''Offer
+makeLenses ''Supply
 makePrisms ''Status
 makeLenses ''World
 makeLenses ''Select
