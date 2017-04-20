@@ -12,6 +12,7 @@
 {-# language ExistentialQuantification #-}
 {-# language UndecidableInstances #-}
 -- {-# language  #-}
+module Model where
 
 import Control.Lens.TH
 import Control.Lens
