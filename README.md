@@ -2,7 +2,7 @@
 
 This README would normally document whatever steps are necessary to get your application up and running.
 
-### visit offering model ###
+### Supply driven vet visits web framework ###
 
 * Model (and service tomorrow) of a visit booking service
 * 0.1
@@ -10,20 +10,17 @@ This README would normally document whatever steps are necessary to get your app
 
 ### How do I get set up? ###
 
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
+* Setting up requires a fully working haskell box with _stack_ building tool
+* Run *stack build* in the directory
+* How to run tests (tbd)
+* Deployment instructions (tbd)
 
 ### Contribution guidelines ###
 
-* Writing tests
-* Code review
-* Other guidelines
+* Writing tests (tbd)
+* Code review (tbd)
 
 ### Who do I talk to? ###
 
-* Repo owner or admin
-* Other community or team contact
+* paolo veronelli (paolo.veronelli@gmail.com)
+* patrizioiezzi@gmail.com
