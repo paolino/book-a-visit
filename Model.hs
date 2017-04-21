@@ -11,6 +11,8 @@
 {-# language ConstraintKinds #-}
 {-# language ExistentialQuantification #-}
 {-# language UndecidableInstances #-}
+{-# language StandaloneDeriving #-}
+{-# language AllowAmbiguousTypes #-}
 -- {-# language  #-}
 module Model where
 
@@ -73,6 +75,7 @@ data Location (b :: Phase) a where
   -- | At clinic or home supplying
   AnySupply :: Place a -> Zone a -> Location Booking a
 
+
 instance (Include (Zone a) (Zone a), Include (Zone a) (Place a), c ~ Zone a ) => Include c (Location b a) where
   z `include` Clinic p = z `include` p
   z `include` Home p = z `include` p
@@ -95,6 +98,11 @@ data Record (b :: Phase) a where
   Visit :: Feedback a -> Record Booked a -> Record Due a
   Failure :: Justification a -> Record Booked a -> Record Due a
 
+
+type Showers a = (Show (Vet a), Show (User a), Show (Feedback a), Show (Justification a), Show (Place a), Show (Zone a), Show (Slot a), Show (Match (User a)), Show (Match (Vet a)))
+deriving instance (Showers a) => Show (Location b a)
+deriving instance (Showers a) => Show (Record b a)
+
 instance Interface a => Valid (Record Booked a, Record Booking a) where
   valid (Supply a l d , Supply a' l' d') = a == a' && d == d' && valid (l',l)
 
@@ -110,12 +118,14 @@ data Query a = Query
   ,   _vetWindow  :: Match (Vet a) -- ^ vet selection
   }
 
+deriving instance (Showers a) => Show (Query a)
+
 instance Interface a => Monoid (Query a) where
   Query a b c d `mappend` Query a' b' c' d' = Query (a `mappend` a') (b `mappend` b') (c `mappend` c')(d `mappend` d')
   mempty = Query mempty mempty mempty mempty
 
 
-data Unmatching = UnmatchedTime | UnmatchedPlace | UnmatchedUser | UnmatchedVet
+data Unmatching = UnmatchedTime | UnmatchedPlace | UnmatchedUser | UnmatchedVet deriving Show
 
 encodeUnmatching x y e = if x `include` y then Right () else Left e
 
@@ -142,6 +152,10 @@ data World f a = World
   ,   _select :: Maybe (Query a) -- ^ why this is the world
   }
 
+type ShowMap f a = (Show (Map f Booking a), Show (Map f Waiting a), Show (Map f Due a))
+deriving instance (Showers a, ShowMap f a) => Show (World f  a)
+
+
 instance (Interface a , Monoid (Map f Booking a),Monoid (Map f Waiting a), Monoid (Map f Due a)) => Monoid (World f a) where
   mempty = World mempty mempty mempty mempty Nothing
   World s a v f q `mappend` World s' a' v' f' q' =
@@ -161,7 +175,7 @@ class Modify f where
   delete :: Ix f  -> f b -> Maybe (f b)
   -- asList :: f b -> [(Ix f, b)]
 
-data Problem = IndexNotFound | Unmatched Unmatching | InvalidLocationSelection | WrongTransition
+data Problem = IndexNotFound | Unmatched Unmatching | InvalidLocationSelection | WrongTransition deriving Show
 
 type DeltaWorld f a = World f a -> Either Problem (World f a)
 

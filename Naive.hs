@@ -30,7 +30,7 @@ data instance Vet Naive = Vet String deriving (Eq,Show)
 
 type Time = Int
 
-data instance Slot Naive = Slot (IntMap Time)  deriving Eq
+data instance Slot Naive = Slot (IntMap Time)  deriving (Show,Eq)
 
 toSpans :: IntMap Time -> Spans Time
 toSpans = map (uncurry Span) . M.assocs
@@ -47,8 +47,8 @@ type Distance = Float
 
 distance (x,y) (x',y') = sqrt ((x - x') ^ 2 + (y - y') ^ 2)
 
-data instance Place Naive = Place Pos deriving Eq
-data instance Zone Naive = Zone Pos Distance | NullZone deriving Eq
+data instance Place Naive = Place Pos deriving (Show,Eq)
+data instance Zone Naive = Zone Pos Distance | NullZone deriving (Show,Eq)
 
 instance Include (Zone Naive) (Zone Naive) where
   Zone p d `include` Zone p' d' = d > d' && distance p p' < d
@@ -68,8 +68,8 @@ instance Monoid (Zone Naive) where
 instance Include (Slot Naive) (Slot Naive) where
   x `include` y  = (x `mappend` y) == x
 
-data instance Match (User Naive) = MatchUser (Set String)
-data instance Match (Vet Naive) = MatchVet (Set String)
+data instance Match (User Naive) = MatchUser (Set String) deriving (Eq,Show)
+data instance Match (Vet Naive) = MatchVet (Set String) deriving (Eq,Show)
 
 instance Include (Match (User Naive)) (User Naive) where
   MatchUser x `include` User y = y `S.member` x
@@ -96,3 +96,6 @@ instance Modify IntMap where
   delete (Ix i) m = case i `M.notMember` m of
                       True -> Nothing
                       False -> Just $ i `M.delete` m
+
+type instance Feedback Naive = String
+type instance Justification Naive = String
