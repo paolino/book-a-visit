@@ -51,18 +51,25 @@ data family Zone a
 
 data family Match a
 
+-- | constraints for implementations
+type Interface a =
+  (
+  Eq (Vet a),
+  Eq (User a),
+  Eq (Slot a),
+  Eq (Place a),
+  Include (Zone a) (Place a), -- place in a zone
+  Include (Zone a) (Zone a), -- zone in a zone
+  Include (Slot a) (Slot a), -- time slot inclusion
+  Include (Match (User a)) (User a), -- match a user
+  Include (Match (Vet a)) (Vet a), -- match a vet
+  Monoid (Slot a),
+  Monoid (Zone a),
+  Monoid (Match (User a)), -- or matching
+  Monoid (Match (Vet a)) -- or matching
+  )
 
-type Interface a = (Eq (Vet a), Eq (User a),Eq (Slot a), Eq (Place a),
-  Include (Zone a) (Place a),
-  Include (Zone a) (Zone a),
-  Include (Slot a) (Slot a),
-  Include (Match (User a)) (User a),
-  Include (Match (Vet a)) (Vet a),
-  Monoid (Slot a),Monoid(Zone a),Monoid (Match (User a)),Monoid (Match (Vet a))
-
-                   )
-
--- | kind level Phase
+-- | kind level Phase for a record
 data Phase = Booking | Booked | Waiting | Due
 
 data Location (b :: Phase) a where
@@ -75,13 +82,14 @@ data Location (b :: Phase) a where
   -- | At clinic or home supplying
   AnySupply :: Place a -> Zone a -> Location Booking a
 
-
-instance (Include (Zone a) (Zone a), Include (Zone a) (Place a), c ~ Zone a ) => Include c (Location b a) where
+-- | a location inside a zone
+instance (Include (Zone a) (Zone a), Include (Zone a) (Place a)) => Include (Zone a) (Location b a) where
   z `include` Clinic p = z `include` p
   z `include` Home p = z `include` p
   z `include` HomeSupply p = z `include` p
   z `include` AnySupply p z' = z `include` p || z `include` z'
 
+-- | valid location phase transition Booking -> Booked
 instance Interface a => Valid (Location Booking a, Location Booked a) where
   valid (Clinic p, Clinic p') = p == p'
   valid (HomeSupply z, Home p) = z `include` p
@@ -92,11 +100,15 @@ type family Feedback a
 
 type family Justification a
 
+-- | record 4 states
 data Record (b :: Phase) a where
+  -- | a vet making an offer
   Supply :: Vet a -> Location b a -> Slot a -> Record b a
+  -- | an offer taken by a client
   Appointment :: User a -> Record Booked a -> Record Waiting a
-  Visit :: Feedback a -> Record Booked a -> Record Due a
-  Failure :: Justification a -> Record Booked a -> Record Due a
+  -- | a succesfully completed
+  Visit :: Feedback a -> Record Waiting a -> Record Due a
+  Failure :: Justification a -> Record Waiting a -> Record Due a
 
 
 type Showers a = (Show (Vet a), Show (User a), Show (Feedback a), Show (Justification a), Show (Place a), Show (Zone a), Show (Slot a), Show (Match (User a)), Show (Match (Vet a)))
@@ -203,35 +215,4 @@ bookSupply i u l w = case get i (w ^. supplies)  of
                                 False -> Left InvalidLocationSelection
 
 
-      {-
-data Modification = Book | Report | Blow
 
-type family Transaction (m :: Modification) a
-
-type instance Book a = (Off
-
-data Action a = Insert (Supply Booking a) |  Drop (Supply Booking a)  | Book (Supply Booking a) (
-
-data Select a = Select
-  {   _bySlot :: Slot a
-  ,   _byVet :: Maybe (Vet a)
-  ,   _byUser :: Maybe (User a)
-  ,   _byZone :: Maybe (Zone a)
-  }
-
-makeLenses ''Visit
-makeLenses ''Supply
-makePrisms ''Status
-makeLenses ''World
-makeLenses ''Select
-
-
-
-instance Timing a => Valid (Select a, World a) where
-  valid (Select
-
-
-
-
-
--}
