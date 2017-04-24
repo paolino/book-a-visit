@@ -11,8 +11,10 @@
 {-# language ConstraintKinds #-}
 {-# language ExistentialQuantification #-}
 {-# language UndecidableInstances #-}
+-- {-# language UndecidableSuperClasses #-}
 {-# language StandaloneDeriving #-}
 {-# language AllowAmbiguousTypes #-}
+{-# language ScopedTypeVariables #-}
 -- {-# language  #-}
 module Model where
 
@@ -20,7 +22,7 @@ import Control.Lens.TH
 import Control.Lens
 import Data.Bifunctor
 import Data.Maybe
-
+import Data.Proxy
 ------------------- lib ---------------
 
 class Valid a where
@@ -28,9 +30,6 @@ class Valid a where
 
 tbd = error "to be implemented"
 ------------------------------------
-
-
-
 
 -- | veterinary
 data family Vet a
@@ -69,57 +68,97 @@ type Interface a =
   Monoid (Match (Vet a)) -- or matching
   )
 
--- | kind level Phase for a record
-data Phase = Booking | Booked | Waiting | Due
 
-data Location (b :: Phase) a where
-  -- | By the structure, supplying and taking
-  Clinic :: Place a ->  Location b a
-  -- | Home supplying, inside a zone
-  HomeSupply :: Zone a -> Location Booking a
-  -- | Home taking
-  Home :: Place a -> Location Booked a
-  -- | At clinic or home supplying
-  AnySupply :: Place a -> Zone a -> Location Booking a
+-- | kind level Phase for a interaction
+data Phase1 = Booking | Booked
+
+data Location (b :: Phase1) (o :: * -> *) a where
+  -- | By the structure or home
+  Home :: Place a ->  Location b o a
+  -- | By the structure or home
+  Clinic :: Place a ->  Location b o a
+  -- | inside a zone
+  HomeNeighbour :: Place a -> Zone a -> Location Booking User a
+  -- | inside a zone
+  ClinicNeighbour :: Place a -> Zone a -> Location Booking Vet a
+
+instance Interface a => Include (Zone a) (Location b o a) where
+  include z (Home p) = z `include` p
+  include z (Clinic p) = z `include` p
+  include z (HomeNeighbour _ p) = z `include` p
+  include z (ClinicNeighbour _ p) = z `include` p
+
+type family Opponent (a :: * -> *) where
+  Opponent Vet = User
+  Opponent User = Vet
 
 -- | a location inside a zone
-instance (Include (Zone a) (Zone a), Include (Zone a) (Place a)) => Include (Zone a) (Location b a) where
-  z `include` Clinic p = z `include` p
-  z `include` Home p = z `include` p
-  z `include` HomeSupply p = z `include` p
-  z `include` AnySupply p z' = z `include` p || z `include` z'
-
 -- | valid location phase transition Booking -> Booked
-instance Interface a => Valid (Location Booking a, Location Booked a) where
-  valid (Clinic p, Clinic p') = p == p'
-  valid (HomeSupply z, Home p) = z `include` p
-  valid (AnySupply p z, Home p') = z `include` p'
-  valid (AnySupply p z, Clinic p') = p == p'
+instance (o' ~ Opponent o, Interface a) => Valid (Location Booking o a, Location Booked o' a) where
+  valid (Home p, Home p') = p == p'
+  valid (HomeNeighbour _ z, Clinic p) = z `include` p
+  valid (HomeNeighbour p _, Home p') = p == p'
+  valid (Clinic p,Clinic p') = p == p'
+  valid (ClinicNeighbour _ z, Home p) = z `include` p
+  valid (ClinicNeighbour p _, Clinic p') = p == p'
+type Showers a =
+  (   Show (Chat a)
+  ,   Show (Vet a)
+  ,   Show (User a)
+  ,   Show (Feedback a)
+  ,   Show (Failure a)
+  ,   Show (Place a)
+  ,   Show (Zone a)
+  ,   Show (Slot a)
+  ,   Show (Match (User a))
+  ,   Show (Match (Vet a))
+  )
 
+deriving instance (Showers a) => Show (Location b o a)
+
+-- | informal comunication
+type family Chat a
+
+-- | final user expression
 type family Feedback a
 
-type family Justification a
+-- | final alternative vet act
+type family Failure a
 
--- | record 4 states
-data Record (b :: Phase) a where
-  -- | a vet making an offer
-  Supply :: Vet a -> Location b a -> Slot a -> Record b a
-  -- | an offer taken by a client
-  Appointment :: User a -> Record Booked a -> Record Waiting a
-  -- | a succesfully completed
-  Visit :: Feedback a -> Record Waiting a -> Record Due a
-  Failure :: Justification a -> Record Waiting a -> Record Due a
+type family Bargain a
+
+data Offer u a = Offer {
+  _bargain :: Bargain a ,
+  _time :: Slot a ,
+  _proponent :: u a
+                       } deriving (Eq, Show)
 
 
-type Showers a = (Show (Vet a), Show (User a), Show (Feedback a), Show (Justification a), Show (Place a), Show (Zone a), Show (Slot a), Show (Match (User a)), Show (Match (Vet a)))
-deriving instance (Showers a) => Show (Location b a)
-deriving instance (Showers a) => Show (Record b a)
+data Dating (u :: * -> *) (b :: Phase1) a where
+  -- | a vet or user making an offer
+  Open :: Offer u a -> Location Booking u a -> Dating u Booking a
+  -- | an opponent accepting an offer
+  Appointment :: Offer (Opponent u) a -> u a -> Location Booked u a -> Dating u Booked a
+    -- | a user making an offer
 
-instance Interface a => Valid (Record Booked a, Record Booking a) where
-  valid (Supply a l d , Supply a' l' d') = a == a' && d == d' && valid (l',l)
+deriving instance (Showers a, Show (u a), Show (Opponent u a)) => Show (Dating u b a)
 
-instance Interface a => Valid (Record Waiting a, Record Booking a) where
-  valid (Appointment _ r, r') = valid (r,r')
+data Phase2 = Waiting | Due
+
+data Interaction (b :: Phase2) a where
+  BootUser :: Dating User Booked a -> Interaction Waiting a
+  BootVet :: Dating Vet Booked a -> Interaction Waiting a
+  Chat ::  Either (User a) (Vet a) -> Chat a -> Interaction Waiting a -> Interaction Waiting a
+  -- | a succesfully completed interaction
+  Closed :: Either (Feedback a) (Failure a) -> Interaction Waiting a ->  Interaction Due a
+  -- | premature consensual end
+  Abandon :: Interaction Waiting a -> Interaction Due a
+
+deriving instance (Showers a) => Show (Interaction b a)
+
+instance (Interface a,u' ~ Opponent u, u ~ Opponent u', Eq (u' a)) => Valid (Dating u Booked a, Dating u' Booking a) where
+  valid (Appointment a' _ l' d', Open a l d) = a == a' && d == d' && valid (l,l')
+
 
 
 -- | subsetting the world
@@ -141,12 +180,33 @@ data Unmatching = UnmatchedTime | UnmatchedPlace | UnmatchedUser | UnmatchedVet 
 
 encodeUnmatching x y e = if x `include` y then Right () else Left e
 
-check :: Interface a => Query a -> Record b a ->  Either Unmatching ()
-check (Query s z u v) (Supply v' l s') = do
-  encodeUnmatching z l UnmatchedPlace
-  encodeUnmatching v v' UnmatchedVet
-  encodeUnmatching s s' UnmatchedTime
+class  Checker b a where
+  check :: Query a -> b a ->  Either Unmatching ()
 
+instance Interface a => Checker (Dating Vet b) a where
+  check (Query s z u v) (Open v' l s') = do
+    encodeUnmatching z l UnmatchedPlace
+    encodeUnmatching v v' UnmatchedVet
+    encodeUnmatching s s' UnmatchedTime
+  check q@(Query s z u v) (Appointment v' u' l s') = do
+    encodeUnmatching z l UnmatchedPlace
+    encodeUnmatching v v' UnmatchedVet
+    encodeUnmatching u u' UnmatchedUser
+    encodeUnmatching s s' UnmatchedTime
+
+instance Interface a => Checker (Dating User b) a where
+  check (Query s z u v) (Open u' l s') = do
+    encodeUnmatching z l UnmatchedPlace
+    encodeUnmatching u u' UnmatchedUser
+    encodeUnmatching s s' UnmatchedTime
+  check q@(Query s z u v) (Appointment u' v' l s') = do
+    encodeUnmatching z l UnmatchedPlace
+    encodeUnmatching v v' UnmatchedVet
+    encodeUnmatching u u' UnmatchedUser
+    encodeUnmatching s s' UnmatchedTime
+
+
+  {-
 check q@(Query s z u v) (Appointment u' o) = encodeUnmatching u u' UnmatchedUser >> check q o
 
 check q (Visit _ x)  = check q x
@@ -154,7 +214,7 @@ check q (Visit _ x)  = check q x
 check q (Failure _ x) = check q x
 
 
-type Map f (b :: Phase) a = f (Record b a)
+type Map f (b :: Phase) a = f (Interaction b a)
 
 data World f a = World
   {   _supplies :: Map f Booking a
@@ -215,4 +275,4 @@ bookSupply i u l w = case get i (w ^. supplies)  of
                                 False -> Left InvalidLocationSelection
 
 
-
+-}

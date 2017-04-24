@@ -99,3 +99,4 @@ instance Modify IntMap where
 
 type instance Feedback Naive = String
 type instance Justification Naive = String
+type instance Chat Naive = String
