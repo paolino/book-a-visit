@@ -50,24 +50,20 @@ data family Zone a
 
 data family Match a
 
+type MatchInterface b = (Include (Match b) b,Monoid (Match b), Eq b)
+type CleanInterface b = (Include b b,Monoid b ,Eq b)
+
 -- | constraints for implementations
 type Interface a =
   (
-  Eq (Vet a),
-  Eq (User a),
-  Eq (Slot a),
-  Eq (Place a),
+  Eq (Place a), -- place in a zone
   Include (Zone a) (Place a), -- place in a zone
-  Include (Zone a) (Zone a), -- zone in a zone
-  Include (Slot a) (Slot a), -- time slot inclusion
-  Include (Match (User a)) (User a), -- match a user
-  Include (Match (Vet a)) (Vet a), -- match a vet
-  Monoid (Slot a),
-  Monoid (Zone a),
-  Monoid (Match (User a)), -- or matching
-  Monoid (Match (Vet a)) -- or matching
+  CleanInterface (Slot a),
+  CleanInterface (Zone a),
+  MatchInterface (Bargain a),
+  MatchInterface (User a),
+  MatchInterface (Vet a)
   )
-
 
 -- | kind level Phase for a interaction
 data Phase1 = Booking | Booked
@@ -101,6 +97,7 @@ instance (o' ~ Opponent o, Interface a) => Valid (Location Booking o a, Location
   valid (Clinic p,Clinic p') = p == p'
   valid (ClinicNeighbour _ z, Home p) = z `include` p
   valid (ClinicNeighbour p _, Clinic p') = p == p'
+
 type Showers a =
   (   Show (Chat a)
   ,   Show (Vet a)
@@ -112,6 +109,8 @@ type Showers a =
   ,   Show (Slot a)
   ,   Show (Match (User a))
   ,   Show (Match (Vet a))
+  ,   Show (Match (Bargain a))
+  ,   Show (Bargain a)
   )
 
 deriving instance (Showers a) => Show (Location b o a)
@@ -125,15 +124,19 @@ type family Feedback a
 -- | final alternative vet act
 type family Failure a
 
+-- | core semantic for service
 type family Bargain a
 
 data Offer u a = Offer {
   _bargain :: Bargain a ,
   _time :: Slot a ,
   _proponent :: u a
-                       } deriving (Eq, Show)
+                       } 
+deriving instance (Interface a, Eq (u a)) => Eq (Offer u a)
 
+deriving instance (Showers a, Show (u a)) => Show (Offer u a)
 
+-- opening phase, simmetric 
 data Dating (u :: * -> *) (b :: Phase1) a where
   -- | a vet or user making an offer
   Open :: Offer u a -> Location Booking u a -> Dating u Booking a
@@ -145,6 +148,7 @@ deriving instance (Showers a, Show (u a), Show (Opponent u a)) => Show (Dating u
 
 data Phase2 = Waiting | Due
 
+-- | Interaction phase, after boxing the dating phase, parts chat and conclude
 data Interaction (b :: Phase2) a where
   BootUser :: Dating User Booked a -> Interaction Waiting a
   BootVet :: Dating Vet Booked a -> Interaction Waiting a
@@ -154,10 +158,10 @@ data Interaction (b :: Phase2) a where
   -- | premature consensual end
   Abandon :: Interaction Waiting a -> Interaction Due a
 
-deriving instance (Showers a) => Show (Interaction b a)
+deriving instance Showers a => Show (Interaction b a)
 
 instance (Interface a,u' ~ Opponent u, u ~ Opponent u', Eq (u' a)) => Valid (Dating u Booked a, Dating u' Booking a) where
-  valid (Appointment a' _ l' d', Open a l d) = a == a' && d == d' && valid (l,l')
+  valid (Appointment a' _ l' , Open a l ) = a == a'  && valid (l,l')
 
 
 
@@ -167,16 +171,22 @@ data Query a = Query
   ,   _spaceWindow :: Zone a -- ^ location selection
   ,   _userWindow :: Match (User a) -- ^ user selection
   ,   _vetWindow  :: Match (Vet a) -- ^ vet selection
+  ,   _bargainWindow :: Match (Bargain a)
   }
 
 deriving instance (Showers a) => Show (Query a)
 
 instance Interface a => Monoid (Query a) where
-  Query a b c d `mappend` Query a' b' c' d' = Query (a `mappend` a') (b `mappend` b') (c `mappend` c')(d `mappend` d')
-  mempty = Query mempty mempty mempty mempty
+  Query a b c d e `mappend` Query a' b' c' d' e' = Query 
+    (a `mappend` a') 
+    (b `mappend` b') 
+    (c `mappend` c')
+    (d `mappend` d')
+    (e `mappend` e')
+  mempty = Query mempty mempty mempty mempty mempty
 
-
-data Unmatching = UnmatchedTime | UnmatchedPlace | UnmatchedUser | UnmatchedVet deriving Show
+data Unmatching = UnmatchedTime | UnmatchedPlace | UnmatchedUser | 
+    UnmatchedVet | UnmatchedBargain deriving Show
 
 encodeUnmatching x y e = if x `include` y then Right () else Left e
 
@@ -184,22 +194,22 @@ class  Checker b a where
   check :: Query a -> b a ->  Either Unmatching ()
 
 instance Interface a => Checker (Dating Vet b) a where
-  check (Query s z u v) (Open v' l s') = do
+  check (Query s z u v b) (Open (Offer b' s' v') l ) = do
     encodeUnmatching z l UnmatchedPlace
     encodeUnmatching v v' UnmatchedVet
     encodeUnmatching s s' UnmatchedTime
-  check q@(Query s z u v) (Appointment v' u' l s') = do
+  check q@(Query s z u v b) (Appointment (Offer b' s' u') v' l) = do
     encodeUnmatching z l UnmatchedPlace
     encodeUnmatching v v' UnmatchedVet
     encodeUnmatching u u' UnmatchedUser
     encodeUnmatching s s' UnmatchedTime
 
 instance Interface a => Checker (Dating User b) a where
-  check (Query s z u v) (Open u' l s') = do
+  check (Query s z u v b) (Open (Offer b' s' u') l) = do
     encodeUnmatching z l UnmatchedPlace
     encodeUnmatching u u' UnmatchedUser
     encodeUnmatching s s' UnmatchedTime
-  check q@(Query s z u v) (Appointment u' v' l s') = do
+  check q@(Query s z u v b) (Appointment (Offer b' s' v') u' l) = do
     encodeUnmatching z l UnmatchedPlace
     encodeUnmatching v v' UnmatchedVet
     encodeUnmatching u u' UnmatchedUser
