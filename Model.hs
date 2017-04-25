@@ -23,6 +23,7 @@ import Control.Lens
 import Data.Bifunctor
 import Data.Maybe
 import Data.Proxy
+import GHC.Base
 ------------------- lib ---------------
 
 class Valid a where
@@ -131,12 +132,12 @@ data Offer u a = Offer {
   _bargain :: Bargain a ,
   _time :: Slot a ,
   _proponent :: u a
-                       } 
+                       }
 deriving instance (Interface a, Eq (u a)) => Eq (Offer u a)
 
 deriving instance (Showers a, Show (u a)) => Show (Offer u a)
 
--- opening phase, simmetric 
+-- opening phase, simmetric
 data Dating (u :: * -> *) (b :: Phase1) a where
   -- | a vet or user making an offer
   Open :: Offer u a -> Location Booking u a -> Dating u Booking a
@@ -177,15 +178,15 @@ data Query a = Query
 deriving instance (Showers a) => Show (Query a)
 
 instance Interface a => Monoid (Query a) where
-  Query a b c d e `mappend` Query a' b' c' d' e' = Query 
-    (a `mappend` a') 
-    (b `mappend` b') 
+  Query a b c d e `mappend` Query a' b' c' d' e' = Query
+    (a `mappend` a')
+    (b `mappend` b')
     (c `mappend` c')
     (d `mappend` d')
     (e `mappend` e')
   mempty = Query mempty mempty mempty mempty mempty
 
-data Unmatching = UnmatchedTime | UnmatchedPlace | UnmatchedUser | 
+data Unmatching = UnmatchedTime | UnmatchedPlace | UnmatchedUser |
     UnmatchedVet | UnmatchedBargain deriving Show
 
 encodeUnmatching x y e = if x `include` y then Right () else Left e
@@ -198,47 +199,49 @@ instance Interface a => Checker (Dating Vet b) a where
     encodeUnmatching z l UnmatchedPlace
     encodeUnmatching v v' UnmatchedVet
     encodeUnmatching s s' UnmatchedTime
+    encodeUnmatching b b' UnmatchedBargain
   check q@(Query s z u v b) (Appointment (Offer b' s' u') v' l) = do
     encodeUnmatching z l UnmatchedPlace
     encodeUnmatching v v' UnmatchedVet
     encodeUnmatching u u' UnmatchedUser
     encodeUnmatching s s' UnmatchedTime
+    encodeUnmatching b b' UnmatchedBargain
 
 instance Interface a => Checker (Dating User b) a where
   check (Query s z u v b) (Open (Offer b' s' u') l) = do
     encodeUnmatching z l UnmatchedPlace
     encodeUnmatching u u' UnmatchedUser
     encodeUnmatching s s' UnmatchedTime
+    encodeUnmatching b b' UnmatchedBargain
   check q@(Query s z u v b) (Appointment (Offer b' s' v') u' l) = do
     encodeUnmatching z l UnmatchedPlace
     encodeUnmatching v v' UnmatchedVet
     encodeUnmatching u u' UnmatchedUser
     encodeUnmatching s s' UnmatchedTime
+    encodeUnmatching b b' UnmatchedBargain
 
+instance Interface a => Checker (Interaction b) a where
+  check q (BootUser d) = check q d
+  check q (BootVet d) = check q d
+  check q (Chat _ _ d) = check q d
+  check q (Closed _ d) = check q d
+  check q (Abandon d) = check q d
 
-  {-
-check q@(Query s z u v) (Appointment u' o) = encodeUnmatching u u' UnmatchedUser >> check q o
-
-check q (Visit _ x)  = check q x
-
-check q (Failure _ x) = check q x
-
-
-type Map f (b :: Phase) a = f (Interaction b a)
 
 data World f a = World
-  {   _supplies :: Map f Booking a
-  ,   _appointments :: Map f Waiting a
-  ,   _visits :: Map f Due a
-  ,   _failures :: Map f Due a
+  {   _vetOffers :: f (Dating Vet Booking a)
+  ,   _userOffers :: f (Dating User Booking a)
+  ,   _appointments :: f (Interaction Waiting a)
+  ,   _visits :: f (Interaction Due a)
   ,   _select :: Maybe (Query a) -- ^ why this is the world
   }
 
-type ShowMap f a = (Show (Map f Booking a), Show (Map f Waiting a), Show (Map f Due a))
-deriving instance (Showers a, ShowMap f a) => Show (World f  a)
+type Cf (m :: * -> Constraint) f a = (m (f (Dating Vet Booking a)), m (f (Dating User Booking a)),
+  m (f (Interaction Waiting a)), m (f (Interaction Due a)))
 
+deriving instance (Showers a, Cf Show f a) => Show (World f  a)
 
-instance (Interface a , Monoid (Map f Booking a),Monoid (Map f Waiting a), Monoid (Map f Due a)) => Monoid (World f a) where
+instance (Interface a , Cf Monoid f a ) => Monoid (World f a) where
   mempty = World mempty mempty mempty mempty Nothing
   World s a v f q `mappend` World s' a' v' f' q' =
     World   (s `mappend` s')
@@ -246,6 +249,7 @@ instance (Interface a , Monoid (Map f Booking a),Monoid (Map f Waiting a), Monoi
             (v `mappend` v')
             (f `mappend` f')
             (q `mappend` q')
+
 
 
 makeLenses ''World
@@ -261,8 +265,9 @@ data Problem = IndexNotFound | Unmatched Unmatching | InvalidLocationSelection |
 
 type DeltaWorld f a = World f a -> Either Problem (World f a)
 
+    {-
 -- | start a new supply
-newSupply :: (Interface a, Modify f) => Vet a -> Location Booking a -> Slot a -> DeltaWorld f a
+newSupply :: (Interface a, Modify f) => Offer Vet a -> Location Booking a -> DeltaWorld f a
 newSupply v l s w = let
   o = Supply v l s in
   first Unmatched $ over supplies (fst . insert o) w <$
