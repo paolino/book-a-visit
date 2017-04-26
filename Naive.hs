@@ -12,6 +12,7 @@
 {-# language ExistentialQuantification #-}
 {-# language UndecidableInstances #-}
 {-# language DeriveAnyClass #-}
+{-# language StandaloneDeriving #-}
 
 module Naive where
 
@@ -25,8 +26,12 @@ import Geometry
 
 data Naive
 
-data instance User Naive = User String deriving (Eq,Show)
-data instance Vet Naive = Vet String deriving (Eq,Show)
+data instance Taker Naive where
+  Taker :: String -> Taker Naive
+
+deriving instance Show (Taker Naive)
+deriving instance Eq (Taker Naive)
+data instance Giver Naive = Giver String deriving (Eq,Show)
 
 type Time = Int
 
@@ -68,27 +73,28 @@ instance Monoid (Zone Naive) where
 instance Include (Slot Naive) (Slot Naive) where
   x `include` y  = (x `mappend` y) == x
 
-data instance Match (User Naive) = MatchUser (Set String) deriving (Eq,Show)
-data instance Match (Vet Naive) = MatchVet (Set String) deriving (Eq,Show)
+data instance Match (Taker Naive) = MatchTaker (Set String) deriving (Eq,Show)
+data instance Match (Giver Naive) = MatchGiver (Set String) deriving (Eq,Show)
 
-instance Include (Match (User Naive)) (User Naive) where
-  MatchUser x `include` User y = y `S.member` x
+instance Include (Match (Taker Naive)) (Taker Naive) where
+  MatchTaker x `include` Taker y = y `S.member` x
 
-instance Include (Match (Vet Naive)) (Vet Naive) where
-  MatchVet x `include` Vet y = y `S.member` x
+instance Include (Match (Giver Naive)) (Giver Naive) where
+  MatchGiver x `include` Giver y = y `S.member` x
 
-instance Monoid (Match (User Naive)) where
-  MatchUser x `mappend` MatchUser y = MatchUser $ x `mappend` y
-  mempty = MatchUser mempty
+instance Monoid (Match (Taker Naive)) where
+  MatchTaker x `mappend` MatchTaker y = MatchTaker $ x `mappend` y
+  mempty = MatchTaker mempty
 
-instance Monoid (Match (Vet Naive)) where
-  MatchVet x `mappend` MatchVet y = MatchVet $ x `mappend` y
-  mempty = MatchVet mempty
+instance Monoid (Match (Giver Naive)) where
+  MatchGiver x `mappend` MatchGiver y = MatchGiver $ x `mappend` y
+  mempty = MatchGiver mempty
 
-instance Modify IntMap where
+instance WorldAccess IntMap where
   data Ix IntMap  = Ix Int
 
   get (Ix i) m = M.lookup i m
+  put (Ix i) x m = M.insert i x m
 
   insert x m = let k = maybe 0 (fst . fst) $ M.maxViewWithKey m
     in (M.insert k x m, Ix k)
@@ -98,5 +104,5 @@ instance Modify IntMap where
                       False -> Just $ i `M.delete` m
 
 type instance Feedback Naive = String
-type instance Justification Naive = String
+type instance Failure Naive = String
 type instance Chat Naive = String

@@ -17,14 +17,14 @@
 
 
 {-# language Rank2Types #-} -- BookingLens definition
-
+{-# language TypeInType #-}
 module Model where
 
 import Control.Lens.TH (makeLenses)
 import Control.Lens ((^.),(.~), Lens',over, set)
 import Data.Bifunctor (first)
 import Data.Maybe (fromJust)
-import GHC.Base (Constraint)
+import GHC.Base (Constraint, Type)
 ------------------- lib ---------------
 
 class Valid a where
@@ -33,14 +33,13 @@ class Valid a where
 tbd = error "to be implemented"
 ------------------------------------
 
--- | givererinary
+-- | one role
 data family Giver a
 
--- | pet owner
+-- | the other
 data family Taker a
 
 -- | time span
-
 data family Slot a
 
 class Include a b where
@@ -70,7 +69,7 @@ type Interface a =
 -- | kind level Phase for a interaction
 data Phase1 = Booking | Booked
 
-data Location (b :: Phase1) (o :: * -> *) a where
+data Location (b :: Phase1) (o :: Type -> Type) a where
   -- | By the structure or home
   Home :: Place a ->  Location b o a
   -- | By the structure or home
@@ -86,7 +85,7 @@ instance Interface a => Include (Zone a) (Location b o a) where
   include z (HomeNeighbour _ p) = z `include` p
   include z (ClinicNeighbour _ p) = z `include` p
 
-type family Opponent (a :: * -> *) where
+type family Opponent (a :: Type -> Type) where
   Opponent Giver = Taker
   Opponent Taker = Giver
 
@@ -138,8 +137,8 @@ deriving instance (Interface a, Eq (u a)) => Eq (Offer u a)
 
 deriving instance (Showers a, Show (u a)) => Show (Offer u a)
 
--- opening phase, simmetric
-data Dating (u :: * -> *) (b :: Phase1) a where
+-- opening phase, symmetric on roles
+data Dating (u :: Type -> Type) (b :: Phase1) a where
   -- | a giver or taker making an offer
   Open :: Offer u a -> Location Booking u a -> Dating u Booking a
   -- | an opponent accepting an offer
@@ -256,7 +255,7 @@ data World f a = World
 type BookingLens f u a =  Lens' (World f a) (f (Dating u Booking a))
 
 -- | Parametric Constraint kind for data accessible World
-type WorldConstraint (m :: * -> Constraint) f a =
+type WorldConstraint (m :: Type -> Constraint) f a =
   (   m (f (Dating Giver Booking a))
   ,   m (f (Dating Taker Booking a))
   ,   m (f (Interaction Waiting a))
