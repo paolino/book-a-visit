@@ -72,30 +72,25 @@ type Showers a =
   )
 
 
-data Offer u a = Offer {
-  _bargain :: Bargain a ,
-  _time :: Slot a ,
-  _proponent :: Roles u a
-                       }
-
-makeLenses '' Offer
 
 type Eqs a =  (Eq (Bargain a), Eq (Slot a),
   Eq (Roles 'Taker a), Eq (Roles Giver a),
    Eq (Place 'Giver a), Eq (Place 'Taker a),
    Eq (Zone 'Giver a), Eq (Zone 'Taker a),
    Eq (Bargain a), Eq (Feedback a), Eq (Chat a), Eq (Failure a))
-deriving instance Eqs a => Eq (Offer Taker a)
-deriving instance Eqs a => Eq (Offer Giver a)
 
-deriving instance (Showers a, Show (Roles u a)) => Show (Offer u a)
 
-data  Open u a = Open (Offer u a) (Proposal u a)
+
+
+data  Open u a = Open (Roles u a) (Bargain a) (Slot a) (Proposal u a)
 
 deriving instance (Showers a) => Show (Open Giver a)
 deriving instance (Showers a) => Show (Open Taker a)
 
-data Appointment u a  = Appointment (Offer (Opponent u) a) (Roles u a) (Acceptance u a)
+deriving instance (Eqs a) => Eq (Open Giver a)
+deriving instance (Eqs a) => Eq (Open Taker a)
+
+data Appointment u a  = Appointment (Open (Opponent u) a) (Roles u a) (Acceptance u a)
 
 deriving instance (Showers a) => Show (Appointment Giver a)
 deriving instance (Showers a) => Show (Appointment Taker a)
@@ -104,8 +99,9 @@ deriving instance  Eqs a =>  Eq (Appointment Giver a)
 deriving instance  Eqs a => Eq (Appointment Taker a)
 
 
-instance (Eq (Bargain a), Eq (Slot a),Eq (Place u' a), ZonePlace u a, Symmetric u u', Eq (Roles u' a), Eq (Offer u' a)) => Valid (Appointment u a, Open u' a) where
-  valid (Appointment a' _ l' , Open a l ) = a == a'  && valid (l,l')
+instance (Eq (Bargain a), Eq (Slot a),Eq (Place u' a), ZonePlace u a, Symmetric u u', Eq (Roles u' a))
+    => Valid (Appointment u a) where
+      valid (Appointment (Open u b t l) u' l' ) = valid (l,l')
 
 -- | Interaction phase, after boxing the dating phase, parts chat and conclude
 data  Interaction a where

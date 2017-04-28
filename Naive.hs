@@ -58,8 +58,6 @@ distance (x,y) (x',y') = sqrt ((x - x') ^ 2 + (y - y') ^ 2)
 data instance Place b Naive = Place Pos deriving (Show,Eq)
 data instance Zone b Naive = Zone Pos Distance | NullZone deriving (Show,Eq)
 
-deriving instance Eq (Open Giver Naive)
-deriving instance Eq (Open Taker Naive)
 
 instance Include (Zone b Naive) where
   type Target (Zone b Naive) = Place b Naive
@@ -105,12 +103,13 @@ type instance Bargain Naive = String
 naiveWorld :: World IntKMap Naive
 naiveWorld = mempty
 
-giverBooking :: Ix TakerI -> Roles Giver Naive -> Acceptance Giver Naive -> DeltaWorld IntKMap () Naive
-giverBooking = bookOffer takerOffers FromGiver (\(Ix k) -> Ix k)
+giverChat, takerChat :: Ix InteractingI -> String -> DeltaWorld IntKMap () Naive
+giverChat i x = chatAppointment i $ ChatGiver x
+takerChat i x = chatAppointment i $ ChatTaker x
 
-takerBooking :: Ix GiverI -> Roles Taker Naive -> Acceptance Taker Naive -> DeltaWorld IntKMap () Naive
-takerBooking = bookOffer giverOffers FromTaker (\(Ix k) -> Ix k)
-
-giverChat, takerChat :: Ix AnyI -> String -> DeltaWorld IntKMap () Naive
-giverChat i = chatAppointment i ChatGiver
-takerChat i = chatAppointment i ChatTaker
+instance Step GiverI where
+  step (Ix i) = Ix i
+instance Step TakerI where
+  step (Ix i) = Ix i
+instance Step InteractingI where
+  step (Ix i) = Ix i
