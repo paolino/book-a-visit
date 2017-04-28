@@ -17,8 +17,8 @@ extra-source-files:  ChangeLog.md, README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Model, Naive
-  other-modules:       Geometry,Spans
+  exposed-modules:     World, Naive, Locations
+  other-modules:       Geometry,Spans,Interaction,Valid,Inclusion
   -- other-extensions:    
   build-depends:       base >=4.9 , lens, containers, streaming
   -- hs-source-dirs:      

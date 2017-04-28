@@ -16,22 +16,23 @@
 
 module Naive where
 
-import Model
 import qualified Data.Set as S
 import Data.Set (Set)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as M
 import Spans
 import Geometry
+import Locations
+import Interaction
+import Inclusion
+import World
 
 data Naive
 
-data instance Taker Naive where
-  Taker :: String -> Taker Naive
+data instance Roles b Naive where
+  TakerR :: String -> Roles Taker Naive
+  GiverR :: String -> Roles Giver Naive
 
-deriving instance Show (Taker Naive)
-deriving instance Eq (Taker Naive)
-data instance Giver Naive = Giver String deriving (Eq,Show)
 
 type Time = Int
 
@@ -52,43 +53,24 @@ type Distance = Float
 
 distance (x,y) (x',y') = sqrt ((x - x') ^ 2 + (y - y') ^ 2)
 
-data instance Place Naive = Place Pos deriving (Show,Eq)
-data instance Zone Naive = Zone Pos Distance | NullZone deriving (Show,Eq)
+data instance Place b Naive = Place Pos deriving (Show,Eq)
+data instance Zone b Naive = Zone Pos Distance | NullZone deriving (Show,Eq)
 
-instance Include (Zone Naive) (Zone Naive) where
-  Zone p d `include` Zone p' d' = d > d' && distance p p' < d
-  x `include` NullZone = True
-  NullZone `include` _ = False
 
-instance Include (Zone Naive) (Place Naive) where
+instance Include (Zone b Naive) where
+  type Target (Zone b Naive) = Place b Naive
   Zone p d `include` Place p' = distance p p' < d
   NullZone `include` _ = False
 
-instance Monoid (Zone Naive) where
+instance Monoid (Zone b Naive) where
   mempty = NullZone
   NullZone `mappend` x = x
   x `mappend` NullZone = x
   Zone p d `mappend` Zone p' d' = uncurry Zone $ encloser (p,d) (p',d')
 
-instance Include (Slot Naive) (Slot Naive) where
+instance Include (Slot Naive) where
+  type Target (Slot Naive) = Slot Naive
   x `include` y  = (x `mappend` y) == x
-
-data instance Match (Taker Naive) = MatchTaker (Set String) deriving (Eq,Show)
-data instance Match (Giver Naive) = MatchGiver (Set String) deriving (Eq,Show)
-
-instance Include (Match (Taker Naive)) (Taker Naive) where
-  MatchTaker x `include` Taker y = y `S.member` x
-
-instance Include (Match (Giver Naive)) (Giver Naive) where
-  MatchGiver x `include` Giver y = y `S.member` x
-
-instance Monoid (Match (Taker Naive)) where
-  MatchTaker x `mappend` MatchTaker y = MatchTaker $ x `mappend` y
-  mempty = MatchTaker mempty
-
-instance Monoid (Match (Giver Naive)) where
-  MatchGiver x `mappend` MatchGiver y = MatchGiver $ x `mappend` y
-  mempty = MatchGiver mempty
 
 instance WorldAccess IntMap where
   data Ix IntMap  = Ix Int
