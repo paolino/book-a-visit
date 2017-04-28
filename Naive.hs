@@ -33,6 +33,8 @@ data instance Roles b Naive where
   TakerR :: String -> Roles Taker Naive
   GiverR :: String -> Roles Giver Naive
 
+deriving instance Show (Roles b Naive)
+deriving instance Eq (Roles b Naive)
 
 type Time = Int
 
@@ -56,6 +58,8 @@ distance (x,y) (x',y') = sqrt ((x - x') ^ 2 + (y - y') ^ 2)
 data instance Place b Naive = Place Pos deriving (Show,Eq)
 data instance Zone b Naive = Zone Pos Distance | NullZone deriving (Show,Eq)
 
+deriving instance Eq (Open Giver Naive)
+deriving instance Eq (Open Taker Naive)
 
 instance Include (Zone b Naive) where
   type Target (Zone b Naive) = Place b Naive
@@ -72,19 +76,41 @@ instance Include (Slot Naive) where
   type Target (Slot Naive) = Slot Naive
   x `include` y  = (x `mappend` y) == x
 
-instance WorldAccess IntMap where
-  data Ix IntMap  = Ix Int
+newtype IntKMap k a = IntKMap (IntMap a) deriving (Show,Eq)
 
-  get (Ix i) m = M.lookup i m
-  put (Ix i) x m = M.insert i x m
+instance Monoid (IntKMap k a) where
+  mempty = IntKMap mempty
+  IntKMap x `mappend` IntKMap y = IntKMap $ x `mappend` y
 
-  insert x m = let k = maybe 0 (fst . fst) $ M.maxViewWithKey m
-    in (M.insert k x m, Ix k)
+deriving instance Show (Ix k)
 
-  delete (Ix i) m = case i `M.notMember` m of
+instance WorldAccess k IntKMap where
+  data Ix k  = Ix Int
+
+  get (Ix i) (IntKMap m) = M.lookup i m
+  put (Ix i) x (IntKMap m) = IntKMap $ M.insert i x m
+
+  insert x (IntKMap m) = let k = maybe 0 (fst . fst) $ M.maxViewWithKey m
+                          in (IntKMap $ M.insert k x m, Ix k)
+
+  delete (Ix i) (IntKMap m) = IntKMap <$> case i `M.notMember` m of
                       True -> Nothing
                       False -> Just $ i `M.delete` m
 
 type instance Feedback Naive = String
 type instance Failure Naive = String
 type instance Chat Naive = String
+type instance Bargain Naive = String
+
+naiveWorld :: World IntKMap Naive
+naiveWorld = mempty
+
+giverBooking :: Ix TakerI -> Roles Giver Naive -> Acceptance Giver Naive -> DeltaWorld IntKMap () Naive
+giverBooking = bookOffer takerOffers FromGiver (\(Ix k) -> Ix k)
+
+takerBooking :: Ix GiverI -> Roles Taker Naive -> Acceptance Taker Naive -> DeltaWorld IntKMap () Naive
+takerBooking = bookOffer giverOffers FromTaker (\(Ix k) -> Ix k)
+
+giverChat, takerChat :: Ix AnyI -> String -> DeltaWorld IntKMap () Naive
+giverChat i = chatAppointment i ChatGiver
+takerChat i = chatAppointment i ChatTaker

@@ -7,6 +7,9 @@
 {-# language UndecidableInstances #-}
 {-# language TypeFamilies #-}
 {-# language FlexibleContexts #-}
+{-# language MultiParamTypeClasses #-}
+{-# language PolyKinds #-}
+
 module World where
 
 import Interaction
@@ -17,29 +20,43 @@ import Data.Kind
 import Valid
 import Data.Maybe (fromJust)
 
+class WorldAccess (k :: ki) f where
+  data Ix k -- ^
+  get :: Ix k  -> f k b -> Maybe b
+  put :: Ix k  -> b -> f k b -> f k b
+  insert :: b -> f k b -> (f k b, Ix k )
+  delete :: Ix k   -> f k b -> Maybe (f k b)
+
+data Indices = GiverI | TakerI | AnyI
+
+
+type family FromRoles a where
+  FromRoles Giver = GiverI
+  FromRoles Taker = TakerI
+
 data World f a = World
-  {   _giverOffers :: f (Open Giver a)
-  ,   _takerOffers :: f (Open Taker a)
-  ,   _appointments :: f (Interaction a)
-  ,   _visits :: f (End a)
+  {   _giverOffers :: f GiverI (Open Giver a)
+  ,   _takerOffers :: f TakerI (Open Taker a)
+  ,   _appointments :: f AnyI (Interaction a)
+  ,   _visits :: f AnyI (End a)
   }
 
 -- | World field selector for offers, can be giverOffers or takerOffers
-type ProposalLens f u a =  Lens' (World f a) (f (Open u a))
+type ProposalLens f u a =  Lens' (World f a) (f (FromRoles u) (Open u a))
 
 -- | Parametric Constraint kind for data accessible World
 type WorldConstraint (m :: Type -> Constraint) f a =
-  (   m (f (Open Giver a))
-  ,   m (f (Open Taker a))
-  ,   m (f (Interaction a))
-  ,   m (f (End a))
+  (   m (f (GiverI) (Open Giver a))
+  ,   m (f (TakerI) (Open Taker a))
+  ,   m (f (AnyI) (Interaction a))
+  ,   m (f (AnyI) (End a))
   )
-
 -----------------------------
 -- World instances ----------
 -----------------------------
 --
 deriving instance (Showers a, WorldConstraint Show f a) => Show (World f a)
+deriving instance ( WorldConstraint Eq f a) => Eq (World f a)
 
 instance (WorldConstraint Monoid f a) => Monoid (World f a) where
   mempty = World mempty mempty mempty mempty
@@ -53,16 +70,10 @@ instance (WorldConstraint Monoid f a) => Monoid (World f a) where
 
 makeLenses ''World
 
-class WorldAccess f where
-  data Ix f -- ^
-  get :: Ix f -> f b -> Maybe b
-  put :: Ix f -> b -> f b -> f b
-  insert :: b -> f b -> (f b, Ix f)
-  delete :: Ix f  -> f b -> Maybe (f b)
 
 
 -- | failing reasons for all transitions
-data Problem = IndexNotFound |  InvalidLocationSelection  deriving Show
+data Problem = IndexNotFound |  InvalidLocationSelection  deriving (Show,Eq)
 
 -- | A possible World modification with an outcome 'r'
 type DeltaWorld f r a = World f a -> Either Problem (World f a, r)
@@ -72,11 +83,11 @@ type DeltaWorld f r a = World f a -> Either Problem (World f a, r)
 -- -----------------------
 
 -- | insert a new offer
-newOffer :: (WorldAccess f)
+newOffer :: (WorldAccess (FromRoles u) f)
          => ProposalLens f u a  -- giver/taker selector
          -> Offer u a -- new offer
          -> Proposal u a -- offer location
-         -> DeltaWorld f (Ix f) a -- world modification
+         -> DeltaWorld f (Ix (FromRoles u)) a -- world modification
 
 
 newOffer k o p w = let
@@ -84,41 +95,43 @@ newOffer k o p w = let
   (t,i) = insert x (w ^. k)
   in return $ (set k t w,i)
 
-onIndex :: WorldAccess f => Ix f -> f a -> (a -> Either Problem b) -> Either Problem b
+onIndex :: WorldAccess k f => Ix k -> f k a -> (a -> Either Problem b) -> Either Problem b
 onIndex i xs f = maybe (Left IndexNotFound) f $ get i xs
 
 -- | dropAny index, decide your auth somewhere else
-dropAny :: (WorldAccess f)
-          => Lens' (World f a) (f b)  -- ^ giver/taker offer selector
-          -> Ix f  -- ^ index of the offer to be deleted
-          -> DeltaWorld f () a -- ^ world modification
+dropAny :: (WorldAccess k f)
+        => Lens' (World f a) (f k b)  -- ^ giver/taker offer selector
+        -> Ix k  -- ^ index of the offer to be deleted
+        -> DeltaWorld f () a -- ^ world modification
 dropAny l i w = maybe (Left IndexNotFound) Right $ do
   os <- delete i (w ^. l)
   return $ (l .~ os $ w, ())
 
 
--- | book an supply moving it to an appointment
-bookOffer :: (Eq (Bargain a),Eq (Slot a),WorldAccess f, Reflexive u , Eq (Roles (Opponent u) a), ZonePlace u a, Eq (Place (Opponent u) a))
-          => ProposalLens f (Opponent u) a -- ^ giver/taker offer selector
-          -> Boxer u a  -- ^ boxing to make a Dating an Interaction
-          -> Ix f -- ^ index of the offer to be promoted
-          -> Roles u a -- ^ accepter
-          -> Acceptance u a -- ^ fixing the offer location
+-- | book an supply moving it to an appointment, for brevity the transphaser is the (Opponent u)
+bookOffer :: (Eq (Offer u a), Eq (Bargain a),Eq (Slot a),WorldAccess (FromRoles u) f, WorldAccess AnyI f, Reflexive u , Eq (Roles u a), ZonePlace (Opponent u) a, Eq (Place u a))
+          => ProposalLens f u a -- ^ giver/taker offer selector
+          -> Boxer (Opponent u) a  -- ^ boxing to make an Appointment an Interaction
+          -> (Ix (FromRoles u) -> Ix AnyI) -- ^ key converter
+          -> Ix (FromRoles u) -- ^ index of the offer to be promoted
+          -> Roles (Opponent u) a -- ^ accepter
+          -> Acceptance (Opponent u) a -- ^ fixing the offer location
           -> DeltaWorld f () a -- ^ world modification
-bookOffer k g i u l w = onIndex i (w ^. k)  $ \x@(Open b l') -> let
+bookOffer k g h i u l w = onIndex i (w ^. k)  $ \x@(Open b l') -> let
                             a = Appointment b u l
                             in case valid (a,x) of
-                                True -> Right . flip (,) () . over k (fromJust . delete i) . over appointments (put i $ g a) $ w
-                                False -> Left InvalidLocationSelection
+                                  True -> Right . flip (,) () . over k (fromJust . delete i) . over appointments (put (h i) $ g a) $ w
+                                  False -> Left InvalidLocationSelection
 -- | chat over an appointment
-chatAppointment ::  (WorldAccess f) => Ix f -> (Chat a -> Interaction a -> Interaction a) -> Chat a -> DeltaWorld f () a
+chatAppointment ::  (WorldAccess AnyI f) => Ix AnyI -> (Chat a -> Interaction a -> Interaction a) -> Chat a -> DeltaWorld f () a
 chatAppointment i t x w = onIndex i (w ^. appointments) $ \y ->
     Right $ (over appointments (put i $ t x y) $ w, ())
 
 -- | close an appointment with a feedback
-closeAppointment :: (WorldAccess f) => Ix f -> (Interaction a -> End a) -> DeltaWorld f () a
+closeAppointment :: (WorldAccess AnyI f) => Ix AnyI -> (Interaction a -> End a) -> DeltaWorld f () a
 closeAppointment i x w = onIndex i (w ^. appointments) $ \y ->
     Right $ (over appointments (fromJust . delete i) . over visits (put i $ x y) $ w, ())
 
+    {-
 
-
+-}

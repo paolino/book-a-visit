@@ -80,7 +80,13 @@ data Offer u a = Offer {
 
 makeLenses '' Offer
 
-deriving instance (Eq (Bargain a), Eq (Slot a), Eq (Roles u a)) => Eq (Offer u a)
+type Eqs a =  (Eq (Bargain a), Eq (Slot a),
+  Eq (Roles 'Taker a), Eq (Roles Giver a),
+   Eq (Place 'Giver a), Eq (Place 'Taker a),
+   Eq (Zone 'Giver a), Eq (Zone 'Taker a),
+   Eq (Bargain a), Eq (Feedback a), Eq (Chat a), Eq (Failure a))
+deriving instance Eqs a => Eq (Offer Taker a)
+deriving instance Eqs a => Eq (Offer Giver a)
 
 deriving instance (Showers a, Show (Roles u a)) => Show (Offer u a)
 
@@ -94,8 +100,11 @@ data Appointment u a  = Appointment (Offer (Opponent u) a) (Roles u a) (Acceptan
 deriving instance (Showers a) => Show (Appointment Giver a)
 deriving instance (Showers a) => Show (Appointment Taker a)
 
+deriving instance  Eqs a =>  Eq (Appointment Giver a)
+deriving instance  Eqs a => Eq (Appointment Taker a)
 
-instance (Eq (Bargain a), Eq (Slot a),Eq (Place u' a), ZonePlace u a, Symmetric u u', Eq (Roles u' a)) => Valid (Appointment u a, Open u' a) where
+
+instance (Eq (Bargain a), Eq (Slot a),Eq (Place u' a), ZonePlace u a, Symmetric u u', Eq (Roles u' a), Eq (Offer u' a)) => Valid (Appointment u a, Open u' a) where
   valid (Appointment a' _ l' , Open a l ) = a == a'  && valid (l,l')
 
 -- | Interaction phase, after boxing the dating phase, parts chat and conclude
@@ -119,6 +128,9 @@ data End a where
   -- | premature consensual end (from giver)
   Abandon ::  Interaction a ->  End a
 
+deriving instance  Eqs a => Eq (Interaction a)
 deriving instance Showers a => Show (Interaction a)
+deriving instance  Eqs a => Eq (End a)
+deriving instance Showers a => Show (End a)
 
 

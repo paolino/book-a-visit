@@ -77,6 +77,7 @@ instance (
   valid (Around z, AtAccepter q) = z `include` q
   valid (AtAround _ z, AtAccepter q) = z `include` q
   valid (AtAround p _, AtProponent q) = p == q
+  valid _ = False
 
 
 deriving instance
@@ -89,3 +90,15 @@ deriving instance
   ,   SymmetricC r a Show Zone
   ) =>
   Show (Acceptance r a)
+
+deriving instance
+  (   SymmetricC r a Eq Place
+  ,   SymmetricC r a Eq Zone
+  ) =>
+  Eq (Proposal r a)
+
+deriving instance
+  (   SymmetricC r a Eq Place
+  ,   SymmetricC r a Eq Zone
+  ) =>
+  Eq (Acceptance r a)
