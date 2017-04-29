@@ -12,7 +12,9 @@ Deciding a span of time and place is the generally referred as taking an _appoin
 The encoding and intricacies involved in the _appointment_ and _interaction_ phases are the challenge we strive to resolve with the protocol in the rest of this document.
 
 ## Depicted flow
+
 ![flow](book-a-services.svg)
+
 ## Appointment phase
 
 The appointment phase is a two state interaction involving both parts.
