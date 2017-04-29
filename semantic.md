@@ -20,12 +20,12 @@ Parts can be any of _client_ and _taker_, but they must be _opponent_ to each ot
 ### Proposal state
 
 A _proposal_ contains 
-- the identification of the _proponent_ , 
-- a fixed span of time, representing the time coordinate for the visit to come, 
-- an extended definition of _zone_, representing the limit in space for the space coordinate of the visit and 
-- the _bargain_, representing the services to be exchanged during the visit.
+* the identification of the _proponent_ , 
+* a fixed span of time, representing the time coordinate for the visit to come, 
+* an extended definition of _zone_, representing the limit in space for the space coordinate of the visit and 
+* the _bargain_, representing the services to be exchanged during the visit.
 
-'''
-In version 0.1, only space as _zone_ is to be refined, but this will extend to both time and bargain if sensible.
-'''
+
+    In version 0.1, only space as _zone_ is to be refined, but this will extend to both time and bargain if sensible.
+
 
