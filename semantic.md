@@ -2,9 +2,9 @@
 
 ## Introduction
 
-Booking a visit is about deciding time and place for a professional to give its services, and tracking the necessary time to fullfill it.
+Booking a visit is about deciding time and place for a professional to give his/her services, and organizing events during the necessary time to fullfill them.
 
-In this document we will refer to the professional as _giver_ and to the client as _taker_ , together as _parts_ and to the services as _visit_.
+In this document we will refer to the professional as the _giver_ and to the client as the _taker_ , to both together as _parts_ and to the services as _visit_.
 Deciding a span of time and place is the generally referred as taking an _appointment_. Book-a-visit takes care of the _appointment_ phase and the _interaction_ phase, which is the span of time between the appointment and an event in time after the appointment which close the _interaction_ and makes it a _visit_.
 For obvious reasons a _visit_ end in more than one way. The encoding and intricacies involved in the _appointment_ and _interaction_ phases are the challenge we strive to resolve with the protocol in the rest of this document.
 
