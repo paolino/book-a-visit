@@ -1,10 +1,10 @@
-# Semantic of book-a-visit transactions
+# Semantic of the service
 
 ## Introduction
 
 Booking a visit is about deciding time and place for a professional to give his/her services, and organizing events during the necessary time to fullfill them.
 
-In this document we will refer to the professional as the _giver_ and to the client as the _taker_ , to both together as _parts_ and to the services as a _visit_.
+In the documentation we will refer to the professional as the _giver_ and to the client as the _taker_ , to both together as _parts_ and to the services as a _visit_.
 Deciding a span of time and place is the generally referred as taking an _appointment_. 
 
 *Book-a-visit* takes care of the _appointment_ phase and the _interaction_ phase, which is the span of time between the appointment and an event in time after the appointment which close the _interaction_ and makes it a _visit_.
@@ -83,9 +83,6 @@ A _failure_ state contains
 
 
 
-* the previous
-
-*
 
 
 
