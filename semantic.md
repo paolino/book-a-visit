@@ -1,10 +1,10 @@
-# Semantic of book-a-visit transactions
+# Semantic of the service
 
 ## Introduction
 
 Booking a visit is about deciding time and place for a professional to give his/her services, and organizing events during the necessary time to fullfill them.
 
-In this document we will refer to the professional as the _giver_ and to the client as the _taker_ , to both together as _parts_ and to the services as a _visit_.
+In the documentation we will refer to the professional as the _giver_ and to the client as the _taker_ , to both together as _parts_ and to the services as a _visit_.
 Deciding a span of time and place is the generally referred as taking an _appointment_. 
 
 *Book-a-visit* takes care of the _appointment_ phase and the _interaction_ phase, which is the span of time between the appointment and an event in time after the appointment which close the _interaction_ and makes it a _visit_.
@@ -45,6 +45,41 @@ An _acceptance_ contains:
 
 The acceptance is thus extending a proposal with the other _part_ and refining the _zone_ to a _place_ 
 The acceptance is the base state to enter the _interaction_ phase
+
+
+## Interaction phase
+
+Interaction phase starts with an appointment encoded in an acceptance status. An appointment can be extended with messages from both parties until the appointment time, this transactions are called _chatting_. _chatting_ doesn't change the nature of the status.
+During this phase the appointment can be set to _dropped_ state from the _giver_ or reach its due time.
+During the appointment time span _chatting_ and _dropping_ are disabled and the only possible change of status is from the _giver_ with a _failure_ declaration. _Failure_ is a possible end state.
+After the appointment _chatting_ is re-enabled together with the chance for the _taker_ to close with an end state containing a _feedback_.
+_Dropped_ state has to be closed with a _feedback_ from _taker_.
+
+### Interaction states
+
+A _chatting_ status contains:
+
+* a chat
+
+* the original acceptance
+
+A _dropped_ state contains:
+
+* the previous chatting state
+
+###  Ending state
+
+A _feedback_ state contains
+
+* the original _chatting_ or _dropped_ state 
+
+* a feedback from the taker
+
+A _failure_ state contains
+
+* the original _chatting_ state
+
+* a failure reason from the _giver_
 
 
 
