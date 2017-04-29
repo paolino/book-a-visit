@@ -97,9 +97,9 @@ class  Step (a :: Indices) where
   step :: Ix a -> Ix (StepIx a)
 
 data Box f i a = Box {
-  blens :: (Lens' (World f a) (f i (Open (FromIx i) a))),
-  bboxer :: (Appointment (Opponent (FromIx i)) a -> Interaction a)
-                     }
+  blens :: Lens' (World f a) (f i (Open (FromIx i) a)),
+  bboxer :: Appointment (Opponent (FromIx i)) a -> Interaction a
+  }
 
 class WorldLens f i a  where
   worldLens :: Ix i -> Box f i a

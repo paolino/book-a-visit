@@ -77,7 +77,7 @@ instance (
   valid (Around z, AtAccepter q) = z `include` q
   valid (AtAround _ z, AtAccepter q) = z `include` q
   valid (AtAround p _, AtProponent q) = p == q
-  valid _ = False
+  valid _ = False -- this should catch only Around -> AtProponent
 
 
 deriving instance
