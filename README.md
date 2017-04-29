@@ -20,7 +20,7 @@
 
 ### Contacts ###
 
-* developer: [paolo veronelli] (mailto://paolo.veronelli@gmail.com)
+* developer: [paolo veronelli](mailto://paolo.veronelli@gmail.com)
 * project: [patrizio iezzi](mailto://patrizioiezzi@gmail.com)
 
 
