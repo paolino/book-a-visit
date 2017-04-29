@@ -47,7 +47,45 @@ The acceptance is thus extending a proposal with the other _part_ and refining t
 The acceptance is the base state to enter the _interaction_ phase
 
 
+## Interaction phase
 
+Interaction phase starts with an appointment encoded in an acceptance status. An appointment can be extended with messages from both parties until the appointment time, this transactions are called _chatting_. _chatting_ doesn't change the nature of the status.
+During this phase the appointment can be set to _dropped_ state from the _giver_ or reach its due time.
+During the appointment time span _chatting_ and _dropping_ are disabled and the only possible change of status is from the _giver_ with a _failure_ declaration. _Failure_ is a possible end state.
+After the appointment _chatting_ is re-enabled together with the chance for the _taker_ to close with an end state containing a _feedback_.
+_Dropped_ state has to be closed with a _feedback_ from _taker_.
+
+### Interaction states
+
+A _chatting_ status contains:
+
+* a chat
+
+* the original acceptance
+
+A _dropped_ state contains:
+
+* the previous chatting state
+
+###  Ending state
+
+A _feedback_ state contains
+
+* the original _chatting_ or _dropped_ state 
+
+* a feedback from the taker
+
+A _failure_ state contains
+
+* the original _chatting_ state
+
+* a failure reason from the _giver_
+
+
+
+* the previous
+
+*
 
 
 
