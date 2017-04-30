@@ -9,8 +9,10 @@
 * Status: alpha
 
 * Documentation:
-
+    * [Motivation and target](motivation.md)
     * [Model semantic](semantic.md)
+    * [Manuals](manual.md)
+
 
 ### How do I get set up? ###
 
