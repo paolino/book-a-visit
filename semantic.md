@@ -30,12 +30,13 @@ A _proposal_ contains:
 
 * a fixed span of time, representing the time coordinate for the visit to come, 
 
-* an extended definition of _zone_, representing the limit in space for the space coordinate of the visit and 
+* an extended definition of _zone_, representing the limit in space for the space coordinate of the visit and (*1)
 
 * the _bargain_, representing the services to be exchanged during the visit.
 
     In version 0.1, only space as _zone_ is to be refined, but this will extend to both time and bargain if sensible.
-
+    
+(*1)* Only for Veterinarians doing home visits. Structures don't need it. 
 
 ## Interaction phase
 
