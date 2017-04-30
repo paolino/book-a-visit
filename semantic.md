@@ -39,8 +39,8 @@ A _proposal_ contains:
 
 ## Interaction phase
 
-Interaction phase starts with an appointment encoded in an acceptance status. An appointment can be extended with messages from both parties until the _serving_ time, this transactions are called _chatting_. _chatting_ doesn't change the nature of the status. _chatting_ itself can happen before and after the _serving_.
-During the _serving_ phase the state can be set to _dropped_ from the _giver_ or reach its due time and go on to _chatting after_ state.
+Interaction phase starts with an appointment encoded in an acceptance status. An appointment can be extended with messages from both parties until the _visit_ time, this transactions are called _chatting_. _chatting_ doesn't change the nature of the status. _chatting_ itself can happen before and after the _visit_.
+During the _visit_ phase the state can be set to _dropped_ from the _giver_ or reach its due time and go on to _chatting after_ state.
 During the appointment time span chatting and dropping are disabled and the only possible change of status is fixed from the _giver_ with a _failure_ declaration sending it to a _negative_ final state.
 After the appointment chatting is re-enabled together with the chance for the _taker_ to close with an _positive_ final state containing a _feedback_.
 Even a _dropped_ state has to be closed to an _positive_ final state with a _feedback_ from _taker_.
@@ -61,18 +61,18 @@ A _chatting before_ state contains:
 
 * a chat: an ongoing collection of messages from both parts
 
-### _Serving_ state
+### _visit_ state
 
-The _serving_ state is entered automatically during the appointment time. It is alternative to the _dropped_ state.
-During _serving_ the state can only be transacted from the _giver_ to the _negative_ state when the _taker_ is not fulfilling the appointment.
+The _visit_ state is entered automatically during the appointment time. It is alternative to the _dropped_ state.
+During _visit_ the state can only be transacted from the _giver_ to the _negative_ state when the _taker_ is not fulfilling the appointment.
 
-A _serving_ state contains 
+A _visit_ state contains 
 
 * the originating _chatting before_ state
 
 ### _Dropped_ state
 
-A _dropped_ state is  created from the _giver_ only from the _chatting before_ state and is alternative to the _serving_ state. It represents a consensual decision of giving up the appointment. 
+A _dropped_ state is  created from the _giver_ only from the _chatting before_ state and is alternative to the _visit_ state. It represents a consensual decision of giving up the appointment. 
 
     Should it go back to proposal automatically ?
 
@@ -82,11 +82,11 @@ A _dropped_ state contains
 
 ### _Chatting after_ state
 
-At the end of _serving_ the state moves automatically back to _chatting_ 
+At the end of _visit_ the state moves automatically back to _chatting_ 
 
 A _chatting after_ state contains
 
-* the originating _serving_ state
+* the originating _visit_ state
 
 * a chat: an ongoing collection of messages from both parts
 
@@ -96,7 +96,7 @@ A _chatting after_ state contains
 This is the negative end of an appointment
 A _negative_ state contains
 
-* the original _serving_ state
+* the originating _visit_ state
 
 * a failure reason from the _giver_
 
