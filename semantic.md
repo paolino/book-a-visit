@@ -45,7 +45,7 @@ During the appointment time span chatting and dropping are disabled and the only
 After the appointment chatting is re-enabled together with the chance for the _taker_ to close with an _positive_ final state containing a _feedback_.
 Even a _dropped_ state has to be closed to an _positive_ final state with a _feedback_ from _taker_.
     
-    Should we consider a different final state for droppeds ?  Or even consider them negative ?
+    Should we consider a different final state for droppeds?  Or even consider them negative?
 
 ### _Chatting before_ state
 
@@ -61,7 +61,7 @@ A _chatting before_ state contains:
 
 * a chat: an ongoing collection of messages from both parts
 
-### _visit_ state
+### _Visit_ state
 
 The _visit_ state is entered automatically during the appointment time. It is alternative to the _dropped_ state.
 During _visit_ the state can only be transacted from the _giver_ to the _negative_ state when the _taker_ is not fulfilling the appointment.
