@@ -43,18 +43,18 @@ A _proposal_ contains:
 Interaction phase starts with an appointment encoded in an acceptance status. An appointment can be extended with messages from both parties until the _visit_ time, this transactions are called _chatting_. _chatting_ doesn't change the nature of the status. _chatting_ itself can happen before and after the _visit_.
 During the _visit_ phase the state can be set to _dropped_ from the _giver_ or reach its due time and go on to _chatting after_ state.
 During the appointment time span chatting and dropping are disabled and the only possible change of status is fixed from the _giver_ with a _failure_ declaration sending it to a _negative_ final state.
-After the appointment chatting is re-enabled together with the chance for the _taker_ to close with an _positive_ final state containing a _feedback_.
-Even a _dropped_ state has to be closed to an _positive_ final state with a _feedback_ from _taker_.
+After the appointment chatting is re-enabled together with the chance for the _taker_ to close with a _positive_ final state containing a _feedback_.
+Even a _dropped_ state has to be closed to a _positive_ final state with a _feedback_ from _taker_.
     
     Should we consider a different final state for droppeds?  Or even consider them negative?
 
-We can't decide about final state for droppeds because it is possibile that _taker_ and _offer_ could have agreed in other ways and other telecoumination services. I recommend to let _offer_ deciding about the final state. 
+A _dropped_ state and we failed. I mean, don't think too much about this grisly state. If _taker_ didn't go; it's banned. Stop. 
 
     Why during the appointment did you choose to disable chatting? And whether the _taker_ is late, can't it alert? 
 
 ### _Chatting before_ state
 
-The chatting state is extending a proposal from the other _part_ and refining the proposed _zone_ to a definite _place_
+The chatting state is extending a proposal from the other _part_ and refining the proposed _zone_ to a defined _place_
 
 A _chatting before_ state contains:
 
@@ -80,6 +80,8 @@ A _visit_ state contains
 A _dropped_ state is  created from the _giver_ only from the _chatting before_ state and is alternative to the _visit_ state. It represents a consensual decision of giving up the appointment. 
 
     Should it go back to proposal automatically ?
+    
+Clearly, world not turn all around web. Vets do their services, we are only an intermediary. Only _offer_ can put on _dropped state_ a _taker_.  
 
 A _dropped_ state contains 
 
