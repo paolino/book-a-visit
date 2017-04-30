@@ -81,7 +81,7 @@ A _dropped_ state is  created from the _giver_ only from the _chatting before_ s
 
     Should it go back to proposal automatically ?
     
-Clearly, world not turn all around web. Vets do their services, we are only an intermediary. Only _offer_ can put on _dropped state_ a _taker_.  
+A _dropped_ state could be selected by _giver_ in all phases: before, during and after visit. The dropped state will be automatically obtained after 5 days. 
 
 A _dropped_ state contains 
 
@@ -90,6 +90,8 @@ A _dropped_ state contains
 ### _Chatting after_ state
 
 At the end of _visit_ the state moves automatically back to _chatting_ 
+
+    Another time, why should chatting be stopped?
 
 A _chatting after_ state contains
 
@@ -105,7 +107,7 @@ A _negative_ state contains
 
 * the originating _visit_ state
 
-* a failure reason from the _giver_
+* a failure reason from the _giver_ (Good idea, we ask to _giver_ about) 
 
 ### _Positive_ state
 
@@ -114,7 +116,7 @@ A _positive_ state contains
 
 * the original _chatting after_  or _dropped_ state 
 
-* a feedback from the _taker_
+* a feedback from the _taker_ (It's better sprinkle _taker_ to writing a review by the way actually offered. I don't uderstand if you want _taker_ write about itself experience in the chat or not.) 
 
 
 
