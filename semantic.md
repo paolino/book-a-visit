@@ -49,6 +49,8 @@ Even a _dropped_ state has to be closed to an _positive_ final state with a _fee
 
 We can't decide about final state for droppeds because it is possibile that _taker_ and _offer_ could have agreed in other ways and other telecoumination services. I recommend to let _offer_ deciding about the final state. 
 
+    Why during the appointment did you choose to disable chatting? And whether the _taker_ is late, can't it alert? 
+
 ### _Chatting before_ state
 
 The chatting state is extending a proposal from the other _part_ and refining the proposed _zone_ to a definite _place_
