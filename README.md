@@ -10,7 +10,7 @@
 
 * Documentation:
 
-  * [Model semantic](semantic.md)
+    * [Model semantic](semantic.md)
 
 ### How do I get set up? ###
 
