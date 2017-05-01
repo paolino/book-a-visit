@@ -30,26 +30,31 @@ A _proposal_ contains:
 
 * a fixed span of time, representing the time coordinate for the visit to come, 
 
-* an extended definition of _zone_, representing the limit in space for the space coordinate of the visit and 
+* an extended definition of _zone_, representing the limit in space for the space coordinate of the visit and (*1)
 
 * the _bargain_, representing the services to be exchanged during the visit.
 
     In version 0.1, only space as _zone_ is to be refined, but this will extend to both time and bargain if sensible.
-
+    
+(*1)* Only for Veterinarians doing home visits. Structures don't need it. 
 
 ## Interaction phase
 
 Interaction phase starts with an appointment encoded in an acceptance status. An appointment can be extended with messages from both parties until the _visit_ time, this transactions are called _chatting_. _chatting_ doesn't change the nature of the status. _chatting_ itself can happen before and after the _visit_.
 During the _visit_ phase the state can be set to _dropped_ from the _giver_ or reach its due time and go on to _chatting after_ state.
 During the appointment time span chatting and dropping are disabled and the only possible change of status is fixed from the _giver_ with a _failure_ declaration sending it to a _negative_ final state.
-After the appointment chatting is re-enabled together with the chance for the _taker_ to close with an _positive_ final state containing a _feedback_.
-Even a _dropped_ state has to be closed to an _positive_ final state with a _feedback_ from _taker_.
+After the appointment chatting is re-enabled together with the chance for the _taker_ to close with a _positive_ final state containing a _feedback_.
+Even a _dropped_ state has to be closed to a _positive_ final state with a _feedback_ from _taker_.
     
     Should we consider a different final state for droppeds?  Or even consider them negative?
 
+A _dropped_ state and we failed. I mean, don't think too much about this grisly state. If _taker_ didn't go; it's banned. Stop. 
+
+    Why during the appointment did you choose to disable chatting? And whether the _taker_ is late, can't it alert? 
+
 ### _Chatting before_ state
 
-The chatting state is extending a proposal from the other _part_ and refining the proposed _zone_ to a definite _place_
+The chatting state is extending a proposal from the other _part_ and refining the proposed _zone_ to a defined _place_
 
 A _chatting before_ state contains:
 
@@ -75,6 +80,8 @@ A _visit_ state contains
 A _dropped_ state is  created from the _giver_ only from the _chatting before_ state and is alternative to the _visit_ state. It represents a consensual decision of giving up the appointment. 
 
     Should it go back to proposal automatically ?
+    
+A _dropped_ state could be selected by _giver_ in all phases: before, during and after visit. The dropped state will be automatically obtained after 5 days. 
 
 A _dropped_ state contains 
 
@@ -83,6 +90,8 @@ A _dropped_ state contains
 ### _Chatting after_ state
 
 At the end of _visit_ the state moves automatically back to _chatting_ 
+
+    Another time, why should chatting be stopped?
 
 A _chatting after_ state contains
 
@@ -98,7 +107,7 @@ A _negative_ state contains
 
 * the originating _visit_ state
 
-* a failure reason from the _giver_
+* a failure reason from the _giver_ (Good idea, we ask to _giver_ about) 
 
 ### _Positive_ state
 
@@ -107,7 +116,7 @@ A _positive_ state contains
 
 * the original _chatting after_  or _dropped_ state 
 
-* a feedback from the _taker_
+* a feedback from the _taker_ (It's better sprinkle _taker_ to writing a review by the way actually offered. I don't uderstand if you want _taker_ write about itself experience in the chat or not.) 
 
 
 
