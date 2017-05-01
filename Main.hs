@@ -32,7 +32,7 @@ type instance Chat () = String
 type instance Zone u () = (Float,Float,Float)
 type instance Place u () = (Float,Float)
 type instance Slot () = (Float,Float)
-type instance Time () = (Float)
+-- type instance Time () = (Float)
 type instance Failure () = String
 type instance Feedback () = String
 
