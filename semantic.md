@@ -77,23 +77,18 @@ A _serving_ state contains
 
 ### _Dropping_ state
 
-A _dropped_ state is  created from the _giver_ only from the _chatting before_ state and is alternative to the _visit_ state. It represents a consensual decision of giving up the appointment. 
+A _dropping_ state is  created from the _giver_ only from the _waiting_ state and is alternative to the _serving_ state. 
+It represents a consensual decision of giving up the appointment. 
 
-    Should it go back to proposal automatically ?
-    
-A _dropped_ state could be selected by _giver_ in all phases: before, during and after visit. The dropped state will be automatically obtained after 5 days. 
-
-A _dropped_ state contains 
+A _dropping_ state contains 
 
 * the originating _chatting before_ state
 
-### _Chatting after_ state
+### _Releasing_ state
 
-At the end of _visit_ the state moves automatically back to _chatting_ 
+This state is necessary for the _taker_ to give a final feedback on the interaction
 
-    Another time, why should chatting be stopped?
-
-A _chatting after_ state contains
+A _releasing_ state contains
 
 * the originating _visit_ state
 
@@ -101,24 +96,33 @@ A _chatting after_ state contains
 
 ## Final states
 
-### _Negative_ state
+### _Failure_ state
+
 This is the negative end of an appointment
-A _negative_ state contains
+A _failure_ state contains
 
 * the originating _visit_ state
 
-* a failure reason from the _giver_ (Good idea, we ask to _giver_ about) 
+* a failure reason from the _giver_ 
 
-### _Positive_ state
+### _Success_ state
 
 This is the positive end of an appointment
-A _positive_ state contains
+A _success_ state contains
 
-* the original _chatting after_  or _dropped_ state 
+* the originating _releasing_ state 
 
-* a feedback from the _taker_ (It's better sprinkle _taker_ to writing a review by the way actually offered. I don't uderstand if you want _taker_ write about itself experience in the chat or not.) 
+* a feedback from the _taker_ 
 
 
+### _Dropped_ state
+
+This is the half experience where interaction has happenend but no _serving_ has
+A _success_ state contains
+
+* the originating _dropping_ state 
+
+* a feedback from the _taker_  
 
 
 
