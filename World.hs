@@ -3,7 +3,7 @@
 {-# language KindSignatures #-}
 {-# language StandaloneDeriving #-}
 {-# language ConstraintKinds #-}
-{-# language Rank2Types #-}
+{-# language GADTs #-}
 {-# language UndecidableInstances #-}
 {-# language TypeFamilies #-}
 {-# language FlexibleContexts #-}
@@ -11,158 +11,127 @@
 {-# language MultiParamTypeClasses #-}
 {-# language PolyKinds #-}
 {-# language FunctionalDependencies #-}
+{-# language ScopedTypeVariables #-}
+{-# language Rank2Types#-}
 
 module World where
 
-import Interaction
-import Locations
+import Status
 import Control.Lens.TH (makeLenses)
-import Control.Lens
-import Data.Kind
+import Control.Lens hiding (dropping)
 import Valid
 import Data.Maybe (fromJust)
+import qualified Data.Map as M
+import Data.Map (Map)
 
-class WorldAccess (k :: ki) f where
-  data Ix k -- ^
-  get :: Ix k  -> f k b -> Maybe b
-  put :: Ix k  -> b -> f k b -> f k b
-  insert :: b -> f k b -> (f k b, Ix k )
-  delete :: Ix k   -> f k b -> Maybe (f k b)
+newtype Idx (s :: Phase) (u :: Role) = Idx Integer deriving (Eq, Ord, Show)
+type MapW (s :: Phase) (u :: Role) a = Map (Idx s u) (Transaction s u a)
 
-data Indices = GiverI | TakerI | InteractingI | EndingI
-
-
-type family FromRoles a where
-  FromRoles Giver = GiverI
-  FromRoles Taker = TakerI
-
-data World f a = World
-  {   _giverOffers :: f GiverI (Open Giver a)
-  ,   _takerOffers :: f TakerI (Open Taker a)
-  ,   _appointments :: f InteractingI (Interaction a)
-  ,   _visits :: f EndingI (End a)
+data World a = World
+  {   _proposalGiver  ::  MapW ProposalT Giver a
+  ,   _proposalTaker  ::  MapW ProposalT Taker a
+  ,   _waiting        ::  MapW WaitingT Some a
+  ,   _dropping        ::  MapW DroppingT Some a
+  ,   _serving        ::  MapW ServingT Some a
+  ,   _releasing      ::  MapW ReleasingT Some a
+  ,   _final          ::  MapW FinalT Some a
   }
-
--- | World field selector for offers, can be giverOffers or takerOffers
-type ProposalLens f u a =  Lens' (World f a) (f (FromRoles u) (Open u a))
-
--- | Parametric Constraint kind for data accessible World
-type WorldConstraint (m :: Type -> Constraint) f a =
-  (   m (f GiverI (Open Giver a))
-  ,   m (f TakerI (Open Taker a))
-  ,   m (f InteractingI (Interaction a))
-  ,   m (f EndingI (End a))
-  )
-
------------------------------
--- World instances ----------
------------------------------
---
-deriving instance (Showers a, WorldConstraint Show f a) => Show (World f a)
-deriving instance ( WorldConstraint Eq f a) => Eq (World f a)
-
-instance (WorldConstraint Monoid f a) => Monoid (World f a) where
-  mempty = World mempty mempty mempty mempty
-  World s a v f `mappend` World s' a' v' f' =
-    World   (s `mappend` s')
-            (a `mappend` a')
-            (v `mappend` v')
-            (f `mappend` f')
-
-----------------------------
 
 makeLenses ''World
+data Chatting s a = Chatting (Idx s Some) (Chat a)
+
+data Protocol u a where
+  New :: Bargain a -> Slot a -> Zone u a -> Protocol u a
+  Abort :: Idx ProposalT u -> Protocol u a
+  Appointment :: Idx ProposalT (Opponent u) -> Place u a -> Protocol u a
+  ChatWaiting :: Chatting WaitingT a -> Protocol u a
+  ChatServing :: Chatting ServingT a -> Protocol u a
+  ChatReleasing :: Chatting ReleasingT a -> Protocol u a
+  StartDrop :: Idx WaitingT Some -> Protocol Giver a
+  Fail :: Idx ServingT Some -> Failure a -> Protocol Giver a
+  Success :: Idx ReleasingT Some -> Feedback a -> Protocol Taker a
+  EndDrop :: Idx DroppingT Some -> Feedback a -> Protocol Taker a
+
+data Event a = FromGiver (Part Giver a) (Protocol Giver a) | FromTaker (Part Taker a) (Protocol Taker a) | Tick (Time a)
+
+data Except = IndexNotFound | WrongAuthor
+
+class SlotMatch a where
+  data Time a
+  matchHigh :: Slot a -> Time a -> Bool
+  matchLow :: Slot a -> Time a -> Bool
 
 
-
--- | failing reasons for all transitions
-data Problem = IndexNotFound |  InvalidLocationSelection  deriving (Show,Eq)
-
--- | A possible World modification with an outcome 'r'
-type DeltaWorld f r a = World f a -> Either Problem (World f a, r)
-
-----------------------------
--- functional interface ----
--- -----------------------
-type family StepIx a where
-  StepIx GiverI = InteractingI
-  StepIx TakerI = InteractingI
-  StepIx InteractingI = EndingI
-
-type family FromIx a where
-  FromIx GiverI = Giver
-  FromIx TakerI = Taker
-
-class  Step (a :: Indices) where
-  step :: Ix a -> Ix (StepIx a)
-
-data Box f i a = Box {
-  blens :: Lens' (World f a) (f i (Open (FromIx i) a)),
-  bboxer :: Appointment (Opponent (FromIx i)) a -> Interaction a
-  }
-
-class WorldLens f i a  where
-  worldLens :: Ix i -> Box f i a
-
-instance WorldLens f GiverI a where
-  worldLens _ = Box giverOffers FromTaker
-
-instance WorldLens f TakerI a where
-  worldLens _ = Box takerOffers FromGiver
+correct :: (t2 -> a) -> Map (Idx t t1) t2 -> Map (Idx s u) a
+correct t = M.fromList . map f . M.assocs where
+  f (Idx i,x) = (Idx i, t x)
 
 
--- | insert a new offer
-newOffer :: (WorldAccess (FromRoles u) f, FromIx (FromRoles u) ~ u,WorldLens f (FromRoles u) a)
-         => Roles u a -- new offer
-         -> Bargain a -- new offer
-         -> Slot a -- new offer
-         -> Proposal u a -- offer location
-         -> DeltaWorld f (Ix (FromRoles u)) a -- world modification
+move :: Lens' (World a) (MapW s u a)
+     -> Lens' (World a) (MapW s' u' a)
+     -> Integer
+     -> World a
+      -> (Transaction s' u' a -> Maybe Except)
+     -> (Transaction s' u' a -> Transaction s u a)
+     -> Either Except (World a)
+move l1 l2 j w c f =     case w ^. l2 . at (Idx j) of
+      Nothing -> Left IndexNotFound
+      Just x -> case c x of
+                  Nothing -> Right $ (l1 . at (Idx j) .~ Just (f x))  . (l2 . at (Idx j) .~ Nothing) $ w
+                  Just e -> Left e
 
+noCheck = const Nothing
+step :: forall a m . (SlotMatch a, Monad m) => m Integer -> Event a -> World a -> m (Either Except (World a))
+step new (FromGiver p (New b s z)) w = let
+  f n = proposalGiver . at (Idx n) .~ Just (Proposal (ProposalData b p z s)) $ w
+  in Right <$> f <$> new
+step new (FromTaker p (New b s z)) w = let
+  f n = proposalTaker . at (Idx n) .~ Just (Proposal (ProposalData b p z s)) $ w
+  in Right <$> f <$> new
 
-newOffer u b s p w = let
-  x = Open u b s p
-  (t,i) = insert x (w ^. blens (worldLens i))
-  in return $ (set (blens (worldLens i)) t w,i)
+step _ (FromGiver p (Abort i@(Idx j))) w = return $
+  move final proposalGiver j w noCheck $ Aborted . EGiver
 
-onIndex :: WorldAccess k f => Ix k -> f k a -> (a -> Either Problem b) -> Either Problem b
-onIndex i xs f = maybe (Left IndexNotFound) f $ get i xs
+step _ (FromTaker p (Abort i@(Idx j))) w = return $
+  move final proposalTaker j w noCheck $ Aborted . ETaker
 
--- | dropAny index, decide your auth somewhere else
-dropAny :: (WorldAccess k f, WorldLens f k a)
-  => Ix k  -- ^ index of the offer to be deleted
-  -> DeltaWorld f () a -- ^ world modification
-dropAny i w = maybe (Left IndexNotFound) Right $ do
-  os <- delete i (w ^. blens (worldLens i))
-  return $ (blens (worldLens i) .~ os $ w, ())
+step _ (FromGiver p (Appointment i@(Idx j) t)) w = return $
+  move waiting proposalTaker j w noCheck $ \x -> Waiting (ETaker (Acceptance x $ AcceptanceData p t))
 
+step _ (FromTaker p (Appointment i@(Idx j) t)) w = return $
+  move waiting proposalGiver j w noCheck $ \x -> Waiting (EGiver (Acceptance x $ AcceptanceData p t))
 
--- | book an supply moving it to an appointment, for brevity the transphaser is the (Opponent u)
-bookOffer :: (Eq (Bargain a),Eq (Slot a),WorldAccess (FromRoles u) f,FromIx (FromRoles u) ~ u, WorldLens f (FromRoles u) a,
-              WorldAccess InteractingI f, Reflexive u , Eq (Roles u a), ZonePlace (Opponent u) a, Eq (Place u a),
-              StepIx (FromRoles u) ~ 'InteractingI, Step (FromRoles u))
-  => Ix (FromRoles u) -- ^ index of the offer to be promoted
-  -> Roles (Opponent u) a -- ^ accepter
-  -> Acceptance (Opponent u) a -- ^ fixing the offer location
-  -> DeltaWorld f () a -- ^ world modification
-bookOffer i u l w = let
-  Box le g = worldLens i
-  in onIndex i (w ^. le)  $ \x -> let
-                            a = Appointment x u l
-                            in case valid a of
-                                True -> Right . flip (,) () . over (blens $ worldLens i) (fromJust . delete i) . over appointments (put (step i) $ g a) $ w
-                                False -> Left InvalidLocationSelection
+step _ (FromGiver p (ChatWaiting (Chatting i@(Idx j) c))) w = return $
+  move waiting waiting j w noCheck $ \x -> ChattingWaiting x $ EGiver $ RChat c
 
--- | chat over an appointment
-chatAppointment ::  (WorldAccess InteractingI f) => Ix InteractingI -> (Interaction a -> Interaction a) -> DeltaWorld f () a
-chatAppointment i x w = onIndex i (w ^. appointments) $ \y ->
-    Right $ (over appointments (put i $ x y) $ w, ())
+step _ (FromTaker p (ChatWaiting (Chatting i@(Idx j) c))) w = return $
+  move waiting waiting j w noCheck $ \x -> ChattingWaiting x $ ETaker $ RChat c
 
--- | close an appointment with a feedback
-closeAppointment :: (WorldAccess InteractingI f, WorldAccess EndingI f, Step InteractingI) => Ix InteractingI -> (Interaction a -> End a) -> DeltaWorld f () a
-closeAppointment i x w = onIndex i (w ^. appointments) $ \y ->
-  Right $ (over appointments (fromJust . delete i) . over visits (put (step i) $ x y) $ w, ())
+step _ (Tick t) w = return $ let
+  (rs,ss) = M.partition (\x -> through (view $ proposal . slot) (summary x) `matchLow` t) $ w ^. waiting
+  (ss',ts) = M.partition (\x -> through  (view $ proposal . slot) (summary x) `matchHigh` t) $ w ^. serving
+  in Right $ w & waiting .~ rs & serving .~ (ss' `mappend` correct Serving ss) & releasing %~ (mappend $ correct Releasing ts)
 
-    {-
+step _ (FromGiver p (ChatServing (Chatting i@(Idx j) c))) w = return $
+  move serving serving j w noCheck $ \x -> ChattingServing x $ EGiver $ RChat c
 
--}
+step _ (FromTaker p (ChatServing (Chatting i@(Idx j) c))) w = return $
+  move serving serving j w noCheck $ \x -> ChattingServing x $ ETaker $ RChat c
+
+step _ (FromGiver p (ChatReleasing (Chatting i@(Idx j) c))) w = return $
+  move releasing releasing j w noCheck $ \x -> ChattingReleasing x $ EGiver $ RChat c
+
+step _ (FromTaker p (ChatReleasing (Chatting i@(Idx j) c))) w = return $
+  move releasing releasing j w noCheck $ \x -> ChattingReleasing x $ ETaker $ RChat c
+
+step _ (FromGiver p (StartDrop (Idx j))) w = return $
+  move dropping waiting j w noCheck Dropping
+
+step _ (FromGiver p (Fail (Idx j) r)) w = return $
+  move final serving j w noCheck $ flip Failure r
+
+step _ (FromTaker p (Success (Idx j) r)) w = return $
+  move final releasing j w noCheck $ flip Successed r
+
+step _ (FromTaker p (EndDrop (Idx j) r)) w = return $
+  move final dropping j w noCheck $ flip Dropped r

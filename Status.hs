@@ -2,15 +2,28 @@
 {-# language TypeFamilies #-}
 {-# language GADTs #-}
 {-# language MultiParamTypeClasses #-}
+{-# language DeriveDataTypeable #-}
+{-# language StandaloneDeriving #-}
+{-# language FlexibleInstances #-}
+{-# language FlexibleContexts #-}
+{-# language UndecidableInstances #-}
+{-# language Rank2Types #-}
+{-# language TemplateHaskell #-}
+{-# language ScopedTypeVariables #-}
+{-# language ConstraintKinds #-}
 
-module States where
+module Status where
 
 import Data.Bifunctor
+import Control.Lens
+import Data.Data.Lens
+import Data.Data
+import Data.Typeable
+import Control.Lens.TH
+import GHC.Base
 
-type Box0 f = Either (f Giver)  (f Taker)
-type Box f a = Either (f Giver a)  (f Taker a)
 
-data Role = Giver | Taker | Any
+data Role = Giver | Taker | Some
 data Phase = BootT | ProposalT | WaitingT | DroppedT | ServingT | ReleasingT | DroppingT | FinalT | AcceptanceT
 
 type family Part (u :: Role) a
@@ -19,109 +32,135 @@ type family Opponent u where
   Opponent Giver = Taker
   Opponent Taker = Giver
 
+data ERole x y = EGiver x | ETaker y deriving (Show,Eq)
+
+makePrisms ''ERole
+
+instance Bifunctor ERole where
+  bimap f g (EGiver x) = EGiver (f x)
+  bimap f g (ETaker x) = ETaker (g x)
+
+type Roled f a = ERole (f Giver a)  (f Taker a)
+
+through :: (forall u . f u a -> b) -> Roled f a -> b
+through f (EGiver x) = f x
+through f (ETaker x) = f x
 
 type family Zone (u :: Role) a
 type family Place (u :: Role) a
 type family Slot a
-type family Time a
 type family Bargain a
 type family Chat a
 type family Feedback a
 type family Failure a
 
-data RoledChat a = RoledChat (Chat a) (Either (Part Giver a)  (Part Taker a))
+type Classes (c :: * -> Constraint)  a = (c (Failure a), c (Feedback a), c (Chat a), c (Bargain a), c (Slot a))
+type ClassesU (c :: * -> Constraint)  u a = ( c (Part u a), c (Zone u a), c (Place u a))
+type ConstraintsA (c :: * -> Constraint) a = (ClassesU Show Giver a, ClassesU Show Taker a, Classes Show a)
+type ConstraintsUA (c :: * -> Constraint) u a = (ClassesU c u a,ClassesU c (Opponent u) a,ClassesU c Giver a, ClassesU c Taker a ,Classes c a)
 
-data State s (u :: Role) a where
+newtype RChat (u :: Role) a = RChat (Chat a)
+type RoledChat a = Roled RChat a
 
-  Proposal :: Bargain a -> Part u a -> Zone u a -> Slot a -> State ProposalT u a
+deriving instance ConstraintsA Show a => Show (RChat u a)
 
-  -- | dropping a proposal
-  Aborted :: Box (State ProposalT) a -> State FinalT Any a
-
-  -- | Accepting a proposal (ephimeral)
-  Acceptance :: State ProposalT u a -> Part (Opponent u) a -> Place (Opponent u) a -> State AcceptanceT u a
-
-  -- | chatting before initial status
-  Waiting :: Box (State AcceptanceT) a -> State WaitingT Any a
-
-  -- | chatting before recursive status
-  ChattingWaiting :: State WaitingT Any a -> RoledChat a -> State WaitingT Any a
-
-  -- | Consensual end
-  Dropping :: State WaitingT Any a -> State DroppingT Any a
-
-
-  Serving :: State WaitingT Any a -> State ServingT Any a
-
-  -- | chatting during service time
-  ChattingServing :: State ServingT Any a -> RoledChat a -> State ServingT Any a
-
-  Releasing :: State ServingT Any a -> State ReleasingT Any a
-
-  ChattingReleasing :: State ReleasingT Any a -> RoledChat a -> State ReleasingT Any a
-
-  Successed :: State ReleasingT Any a -> Feedback a -> State FinalT Any a
-
-  Dropped :: State DroppingT Any a -> Feedback a -> State FinalT Any a
-
-  Failure :: State ServingT Any a -> Failure a -> State FinalT Any a
-
-data family Index (s :: Phase) (u :: Role)
-
-type Map f (s :: Phase) (u :: Role) a = f (Index s u) (State s u a)
-
-data World f a = World
-  {   _proposalGiver  ::  Map f ProposalT Giver a
-  ,   _proposalTaker  ::  Map f ProposalT Taker a
-  ,   _waiting        ::  Map f WaitingT Any a
-  ,   _serving        ::  Map f ServingT Any a
-  ,   _releasing      ::  Map f ReleasingT Any a
-  ,   _final          ::  Map f FinalT Any a
+data ProposalData u a = ProposalData {
+  _bargain :: Bargain a,
+  _proponent :: Part u a,
+  _zone :: Zone u a,
+  _slot :: Slot a
   }
 
+makeLenses ''ProposalData
+deriving instance (Classes Show a, ClassesU Show u a) => Show (ProposalData u a)
+deriving instance (Classes Show a, ClassesU Show u a) => Show (AcceptanceData u a)
+data AcceptanceData u a = AcceptanceData {
+  _accepter :: Part u a,
+  _place :: Place u a
+  }
+
+makeLenses ''AcceptanceData
+
+data Transaction s (u :: Role) a where
+
+  Proposal :: ProposalData u a -> Transaction ProposalT u a
+
+  -- | dropping a proposal
+  Aborted :: Roled (Transaction ProposalT) a -> Transaction FinalT Some a
+
+  -- | Accepting a proposal (ephimeral)
+  Acceptance :: Transaction ProposalT u a -> AcceptanceData (Opponent u) a -> Transaction AcceptanceT u a
+
+  -- | chatting before initial status
+  Waiting :: Roled (Transaction AcceptanceT) a -> Transaction WaitingT Some a
+
+  -- | chatting before recursive status
+  ChattingWaiting :: Transaction WaitingT Some a -> RoledChat a -> Transaction WaitingT Some a
+
+  -- | Consensual end
+  Dropping :: Transaction WaitingT Some a -> Transaction DroppingT Some a
 
 
-data Chatting s a = Chatting (Index s Any) (Chat a)
+  Serving :: Transaction WaitingT Some a -> Transaction ServingT Some a
 
-data Protocol u a where
-  New :: Bargain a -> Slot a -> Zone u a -> Protocol u a
-  Givup :: Index ProposalT u -> Protocol u a
-  Appointment :: Index ProposalT u -> Place (Opponent u) a -> Protocol u a
-  ChatWaiting :: Chatting WaitingT a -> Protocol u a
-  ChatServing :: Chatting ServingT a -> Protocol u a
-  ChatReleasing :: Chatting ReleasingT a -> Protocol u a
-  StartDrop :: Index WaitingT Any -> Protocol Giver a
-  Fail :: Index ServingT Any -> Failure a -> Protocol Giver a
-  Success :: Index ReleasingT Any -> Feedback a -> Protocol Taker a
-  EndDrop :: Index DroppingT Any -> Feedback a -> Protocol Giver a
+  -- | chatting during service time
+  ChattingServing :: Transaction ServingT Some a -> RoledChat a -> Transaction ServingT Some a
 
-data Event a = FromGiver (Part Giver a) (Protocol Giver a) | FromTaker (Part Taker a) (Protocol Taker a) | Tick (Time a)
+  Releasing :: Transaction ServingT Some a -> Transaction ReleasingT Some a
 
-class Matching a b where
-  match :: a -> b -> Bool
+  ChattingReleasing :: Transaction ReleasingT Some a -> RoledChat a -> Transaction ReleasingT Some a
+
+  Successed :: Transaction ReleasingT Some a -> Feedback a -> Transaction FinalT Some a
+
+  Dropped :: Transaction DroppingT Some a -> Feedback a -> Transaction FinalT Some a
+
+  Failure :: Transaction ServingT Some a -> Failure a -> Transaction FinalT Some a
+
+deriving instance ConstraintsUA Show u a => Show (Transaction s u a)
 
 
-data Problem  = NotMatching | WrongAuthor | NotFound
 
-type Step f a = Event a -> World f a -> Either Problem (World f a)
+data Summary u a = Summary {
+  _proposal :: ProposalData u a,
+  _acceptance :: Maybe (AcceptanceData (Opponent u) a),
+  _chat :: [RoledChat a],
+  _feedback :: Maybe (Either (Failure a) (Feedback a))
+}
 
+deriving instance ConstraintsUA Show u a => Show (Summary u a)
 
-acceptance :: State s Any a -> Box (State AcceptanceT) a
-acceptance (Waiting p) = p
-acceptance (ChattingWaiting p _) = acceptance p
-acceptance (Serving p) = acceptance p
-acceptance (ChattingServing p _) = acceptance p
-acceptance (Releasing p) = acceptance p
-acceptance (ChattingReleasing p _) = acceptance p
-acceptance (Dropping p) = acceptance p
-acceptance (Successed p _) = acceptance p
-acceptance (Failure p _) = acceptance p
-acceptance (Dropped p _) = acceptance p
+makeLenses ''Summary
 
+type family SummaryT s u a where
+  SummaryT AcceptanceT u a = Summary u a
+  SummaryT ProposalT u a = Summary u a
+  SummaryT s u a = Roled Summary a
 
-slot :: State s u a -> Slot a
-slot (Proposal _ _ _ s) = s
-slot (Acceptance p _ _) = slot p
-slot =
+class SummaryC s u a where
+  summary :: Transaction s u a -> SummaryT s u a
 
+instance {-# OVERLAPPABLE #-} SummaryC ProposalT u a where
+    summary (Proposal x) = Summary x Nothing [] Nothing
+
+instance {-# OVERLAPPABLE #-} SummaryC AcceptanceT u a where
+  summary (Acceptance p x) = set acceptance (Just x) $ summary p
+
+type ModT (f :: Role -> * -> * ) (g :: Role -> * -> * ) a = forall u. f u a -> g u a
+
+onBoth :: ModT f g a -> Roled f a -> Roled g a
+onBoth s = bimap s s
+
+instance {-# OVERLAPS #-} SummaryC s u a where
+  summary (Aborted b) = summary `onBoth` b
+  summary (Waiting p) = summary `onBoth` p
+  summary (ChattingWaiting p x) = over chat (x:) `onBoth`  (summary p) where
+  summary (Dropping p) = summary p
+  summary (Dropped p x) = set feedback (Just $ Right x) `onBoth` summary p where
+  summary (Serving p) = summary p
+  summary (ChattingServing p x) =  over chat (x:) `onBoth` summary p where
+  summary (Failure p x) = set feedback (Just $ Left x) `onBoth` summary p
+  summary (Releasing p) = summary p
+  summary (ChattingReleasing p x) =  over chat (x:) `onBoth` summary p where
+  summary (Successed p x) = set feedback (Just $ Right x) `onBoth` summary p
+  summary _ = error "too much inside to compute a Roled Summary a"
 
