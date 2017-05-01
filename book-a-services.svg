@@ -652,9 +652,9 @@
       </g>
       <g class="com.sun.star.drawing.ConnectorShape">
        <g id="id48">
-        <rect class="BoundingBox" stroke="none" fill="none" x="6197" y="10361" width="3505" height="1250"/>
-        <path fill="none" stroke="rgb(204,153,0)" d="M 9700,10900 C 9700,11759 6849,11975 6333,10767"/>
-        <path fill="rgb(204,153,0)" stroke="none" d="M 6254,10361 L 6198,10832 6492,10772 6254,10361 Z"/>
+        <rect class="BoundingBox" stroke="none" fill="none" x="6325" y="9382" width="3377" height="2130"/>
+        <path fill="none" stroke="rgb(204,153,0)" d="M 9700,10900 C 9700,11759 8717,11616 8401,11055 8085,10494 8388,9661 6764,9531"/>
+        <path fill="rgb(204,153,0)" stroke="none" d="M 6325,9515 L 6769,9682 6780,9383 6325,9515 Z"/>
        </g>
       </g>
       <g class="com.sun.star.drawing.ConnectorShape">
