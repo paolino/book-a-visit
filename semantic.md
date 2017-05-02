@@ -13,7 +13,7 @@ The encoding and intricacies involved in the _appointment_ and _interaction_ pha
 
 ## Depicted flow
 
-![flow](https://raw.githubusercontent.com/paolino/book-a-visit/master/book-a-services.svg)
+![flow](https://raw.githubusercontent.com/paolino/book-a-visit/master/book-a-services.jpg)
 
 ## Appointment phase
 
