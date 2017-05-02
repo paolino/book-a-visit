@@ -13,6 +13,7 @@
 {-# language FunctionalDependencies #-}
 {-# language ScopedTypeVariables #-}
 {-# language Rank2Types#-}
+{-# language ViewPatterns #-}
 
 module World where
 
@@ -24,8 +25,8 @@ import Data.Maybe (fromJust)
 import qualified Data.Map as M
 import Data.Map (Map)
 
-newtype Idx (s :: Phase) (u :: Role) = Idx Integer deriving (Eq, Ord, Show)
-type MapW (s :: Phase) (u :: Role) a = Map (Idx s u) (Transaction s u a)
+newtype Idx (u :: Role) (s::Phase) = Idx Integer deriving (Eq, Ord, Show)
+type MapW (s :: Phase) (u :: Role) a = Map (Idx u s) (Transaction s u a)
 
 data World a = World
   {   _proposalGiver  ::  MapW ProposalT Giver a
@@ -39,23 +40,44 @@ data World a = World
 
 
 makeLenses ''World
-data Chatting s a = Chatting (Idx s Some) (Chat a)
 
-data Protocol u a where
-  New :: Bargain a -> Slot a -> Zone u a -> Protocol u a
-  Abort :: Idx ProposalT u -> Protocol u a
-  Appointment :: Idx ProposalT (Opponent u) -> Place u a -> Protocol u a
-  ChatWaiting :: Chatting WaitingT a -> Protocol u a
-  ChatServing :: Chatting ServingT a -> Protocol u a
-  ChatReleasing :: Chatting ReleasingT a -> Protocol u a
-  StartDrop :: Idx WaitingT Some -> Protocol Giver a
-  Fail :: Idx ServingT Some -> Failure a -> Protocol Giver a
-  Success :: Idx ReleasingT Some -> Feedback a -> Protocol Taker a
-  EndDrop :: Idx DroppingT Some -> Feedback a -> Protocol Taker a
+instance Monoid (World a) where
+  mempty = World mempty mempty mempty mempty mempty mempty mempty
+  World s a v f q e h `mappend` World s' a' v' f' q' e' h' =
+    World   (s `mappend` s')
+            (a `mappend` a')
+            (v `mappend` v')
+            (f `mappend` f')
+            (q `mappend` q')
+            (e `mappend` e')
+            (h `mappend` h')
 
-data Event a = FromGiver (Part Giver a) (Protocol Giver a) | FromTaker (Part Taker a) (Protocol Taker a) | Tick (Time a)
+data Chatting s a = Chatting (Idx Some s) (Chat a)
 
-data Except = IndexNotFound | WrongAuthor
+data StepT = NewT | OtherT
+
+data Protocol r u a where
+  New :: Bargain a -> Slot a -> Zone u a -> Protocol NewT u a
+  Abort :: Idx u ProposalT -> Protocol OtherT u a
+  Appointment :: Idx (Opponent u) ProposalT  -> Place u a -> Protocol OtherT u a
+  ChatWaiting :: Chatting WaitingT a -> Protocol OtherT u a
+  ChatServing :: Chatting ServingT a -> Protocol OtherT u a
+  ChatReleasing :: Chatting ReleasingT a -> Protocol OtherT u a
+  StartDrop :: Idx Some WaitingT -> Protocol OtherT Giver a
+  Fail :: Idx Some ServingT  -> Failure a -> Protocol OtherT Giver a
+  Success :: Idx Some ReleasingT  -> Feedback a -> Protocol OtherT Taker a
+  EndDrop :: Idx Some DroppingT -> Feedback a -> Protocol OtherT Taker a
+
+
+class Step m r a where
+  type Output m r a
+  data Input m r a
+  step :: Input  m r a -> World a -> Output  m r a
+
+data Event r a = FromGiver (Part Giver a) (Protocol r Giver a) | FromTaker (Part Taker a) (Protocol r Taker a) | Tick (Time a)
+
+data Except = IndexNotFound | WrongAuthor deriving Show
+
 
 class SlotMatch a where
   data Time a
@@ -63,9 +85,10 @@ class SlotMatch a where
   matchLow :: Slot a -> Time a -> Bool
 
 
-correct :: (t2 -> a) -> Map (Idx t t1) t2 -> Map (Idx s u) a
+correct :: (t2 -> a) -> Map (Idx t1 t) t2 -> Map (Idx u s) a
 correct t = M.fromList . map f . M.assocs where
   f (Idx i,x) = (Idx i, t x)
+
 
 
 move :: Lens' (World a) (MapW s u a)
@@ -74,65 +97,75 @@ move :: Lens' (World a) (MapW s u a)
      -> World a
       -> (Transaction s' u' a -> Maybe Except)
      -> (Transaction s' u' a -> Transaction s u a)
-     -> Either Except (World a)
+     -> Output m OtherT a
 move l1 l2 j w c f =     case w ^. l2 . at (Idx j) of
       Nothing -> Left IndexNotFound
       Just x -> case c x of
                   Nothing -> Right $ (l1 . at (Idx j) .~ Just (f x))  . (l2 . at (Idx j) .~ Nothing) $ w
-                  Just e -> Left e
+                  Just e ->  Left e
 
 noCheck = const Nothing
-step :: forall a m . (SlotMatch a, Monad m) => m Integer -> Event a -> World a -> m (Either Except (World a))
-step new (FromGiver p (New b s z)) w = let
-  f n = proposalGiver . at (Idx n) .~ Just (Proposal (ProposalData b p z s)) $ w
-  in Right <$> f <$> new
-step new (FromTaker p (New b s z)) w = let
-  f n = proposalTaker . at (Idx n) .~ Just (Proposal (ProposalData b p z s)) $ w
-  in Right <$> f <$> new
 
-step _ (FromGiver p (Abort i@(Idx j))) w = return $
-  move final proposalGiver j w noCheck $ Aborted . EGiver
+instance Monad m => Step m NewT a where
+  -- step :: forall a  . (SlotMatch a, Monad ) =>  Integer -> Event a -> World a ->  (Either Except (World a))
+  type Output m NewT a =  m (World a)
+  data Input m NewT a = NewI (m Integer, Event NewT a)
+  step (NewI (new,FromGiver p (New b s z))) w = do
+    n <- new
+    return $ ((proposalGiver . at (Idx n) .~ Just (Proposal (ProposalData b p z s))) w)
 
-step _ (FromTaker p (Abort i@(Idx j))) w = return $
-  move final proposalTaker j w noCheck $ Aborted . ETaker
+  step (NewI (new,FromTaker p (New b s z))) w = do
+    n <- new
+    return ((proposalTaker . at (Idx n) .~ Just (Proposal (ProposalData b p z s))) w)
 
-step _ (FromGiver p (Appointment i@(Idx j) t)) w = return $
-  move waiting proposalTaker j w noCheck $ \x -> Waiting (ETaker (Acceptance x $ AcceptanceData p t))
+other (OtherI x) = x
+instance SlotMatch a => Step m OtherT a where
+  type Output m OtherT a = Either Except (World a)
+  data Input m OtherT a = OtherI (Event OtherT a)
 
-step _ (FromTaker p (Appointment i@(Idx j) t)) w = return $
-  move waiting proposalGiver j w noCheck $ \x -> Waiting (EGiver (Acceptance x $ AcceptanceData p t))
+  step (other -> FromGiver p (Abort i@(Idx j))) w =
+    move final proposalGiver j w noCheck $ Aborted . EGiver
 
-step _ (FromGiver p (ChatWaiting (Chatting i@(Idx j) c))) w = return $
-  move waiting waiting j w noCheck $ \x -> ChattingWaiting x $ EGiver $ RChat c
+  step (other ->FromTaker p (Abort i@(Idx j))) w =
+    move final proposalTaker j w noCheck $ Aborted . ETaker
 
-step _ (FromTaker p (ChatWaiting (Chatting i@(Idx j) c))) w = return $
-  move waiting waiting j w noCheck $ \x -> ChattingWaiting x $ ETaker $ RChat c
+  step (other ->FromGiver p (Appointment i@(Idx j) t)) w =
+    move waiting proposalTaker j w noCheck $ \x -> Waiting (ETaker (Acceptance x $ AcceptanceData p t))
 
-step _ (Tick t) w = return $ let
-  (rs,ss) = M.partition (\x -> through (view $ proposal . slot) (summary x) `matchLow` t) $ w ^. waiting
-  (ss',ts) = M.partition (\x -> through  (view $ proposal . slot) (summary x) `matchHigh` t) $ w ^. serving
-  in Right $ w & waiting .~ rs & serving .~ (ss' `mappend` correct Serving ss) & releasing %~ (mappend $ correct Releasing ts)
+  step (other ->FromTaker p (Appointment i@(Idx j) t)) w =
+    move waiting proposalGiver j w noCheck $ \x -> Waiting (EGiver (Acceptance x $ AcceptanceData p t))
 
-step _ (FromGiver p (ChatServing (Chatting i@(Idx j) c))) w = return $
-  move serving serving j w noCheck $ \x -> ChattingServing x $ EGiver $ RChat c
+  step (other ->FromGiver p (ChatWaiting (Chatting i@(Idx j) c))) w =
+    move waiting waiting j w noCheck $ \x -> ChattingWaiting x $ EGiver $ RChat c
 
-step _ (FromTaker p (ChatServing (Chatting i@(Idx j) c))) w = return $
-  move serving serving j w noCheck $ \x -> ChattingServing x $ ETaker $ RChat c
+  step (other ->FromTaker p (ChatWaiting (Chatting i@(Idx j) c))) w =
+    move waiting waiting j w noCheck $ \x -> ChattingWaiting x $ ETaker $ RChat c
 
-step _ (FromGiver p (ChatReleasing (Chatting i@(Idx j) c))) w = return $
-  move releasing releasing j w noCheck $ \x -> ChattingReleasing x $ EGiver $ RChat c
+  step (other ->Tick t) w = let
+    (rs,ss) = M.partition (\x -> through (view $ proposal . slot) (summary x) `matchLow` t) $ w ^. waiting
+    (ss',ts) = M.partition (\x -> through  (view $ proposal . slot) (summary x) `matchHigh` t) $ w ^. serving
+    in Right $ w & waiting .~ rs & serving .~ (ss' `mappend` correct Serving ss) & releasing %~ (mappend $ correct Releasing ts)
 
-step _ (FromTaker p (ChatReleasing (Chatting i@(Idx j) c))) w = return $
-  move releasing releasing j w noCheck $ \x -> ChattingReleasing x $ ETaker $ RChat c
+  step (other ->FromGiver p (ChatServing (Chatting i@(Idx j) c))) w =
+    move serving serving j w noCheck $ \x -> ChattingServing x $ EGiver $ RChat c
 
-step _ (FromGiver p (StartDrop (Idx j))) w = return $
-  move dropping waiting j w noCheck Dropping
+  step (other ->FromTaker p (ChatServing (Chatting i@(Idx j) c))) w =
+    move serving serving j w noCheck $ \x -> ChattingServing x $ ETaker $ RChat c
 
-step _ (FromGiver p (Fail (Idx j) r)) w = return $
-  move final serving j w noCheck $ flip Failure r
+  step (other ->FromGiver p (ChatReleasing (Chatting i@(Idx j) c))) w =
+    move releasing releasing j w noCheck $ \x -> ChattingReleasing x $ EGiver $ RChat c
 
-step _ (FromTaker p (Success (Idx j) r)) w = return $
-  move final releasing j w noCheck $ flip Successed r
+  step (other ->FromTaker p (ChatReleasing (Chatting i@(Idx j) c))) w =
+    move releasing releasing j w noCheck $ \x -> ChattingReleasing x $ ETaker $ RChat c
 
-step _ (FromTaker p (EndDrop (Idx j) r)) w = return $
-  move final dropping j w noCheck $ flip Dropped r
+  step (other ->FromGiver p (StartDrop (Idx j))) w =
+    move dropping waiting j w noCheck Dropping
+
+  step (other ->FromGiver p (Fail (Idx j) r)) w =
+    move final serving j w noCheck $ flip Failure r
+
+  step (other ->FromTaker p (Success (Idx j) r)) w =
+    move final releasing j w noCheck $ flip Successed r
+
+  step (other ->FromTaker p (EndDrop (Idx j) r)) w =
+    move final dropping j w noCheck $ flip Dropped r

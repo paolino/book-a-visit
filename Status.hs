@@ -11,6 +11,7 @@
 {-# language TemplateHaskell #-}
 {-# language ScopedTypeVariables #-}
 {-# language ConstraintKinds #-}
+{-# language PolyKinds #-}
 
 module Status where
 
@@ -40,7 +41,7 @@ instance Bifunctor ERole where
   bimap f g (EGiver x) = EGiver (f x)
   bimap f g (ETaker x) = ETaker (g x)
 
-type Roled f a = ERole (f Giver a)  (f Taker a)
+type Roled f (a :: k) = ERole (f Giver a)  (f Taker a)
 
 through :: (forall u . f u a -> b) -> Roled f a -> b
 through f (EGiver x) = f x
