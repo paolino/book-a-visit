@@ -37,6 +37,7 @@ data World a = World
   ,   _final          ::  MapW FinalT Some a
   }
 
+
 makeLenses ''World
 data Chatting s a = Chatting (Idx s Some) (Chat a)
 
