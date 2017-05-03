@@ -14,6 +14,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language Rank2Types#-}
 {-# language ViewPatterns #-}
+{-# language TypeInType #-}
 
 module World where
 
@@ -25,17 +26,17 @@ import Data.Maybe (fromJust)
 import qualified Data.Map as M
 import Data.Map (Map)
 
-newtype Idx (u :: Role) (s::Phase) = Idx Integer deriving (Eq, Ord, Show)
-type MapW (s :: Phase) (u :: Role) a = Map (Idx u s) (Transaction s u a)
+newtype Idx (u :: Presence Role) (s::Phase) = Idx Integer deriving (Eq, Ord, Show)
+type MapW (s :: Phase) (u :: Presence Role) a = Map (Idx u s) (Transaction s u a)
 
 data World a = World
-  {   _proposalGiver  ::  MapW ProposalT Giver a
-  ,   _proposalTaker  ::  MapW ProposalT Taker a
-  ,   _waiting        ::  MapW WaitingT Some a
-  ,   _dropping        ::  MapW DroppingT Some a
-  ,   _serving        ::  MapW ServingT Some a
-  ,   _releasing      ::  MapW ReleasingT Some a
-  ,   _final          ::  MapW FinalT Some a
+  {   _proposalGiver  ::  MapW ProposalT (Present Giver) a
+  ,   _proposalTaker  ::  MapW ProposalT (Present Taker) a
+  ,   _waiting        ::  MapW WaitingT Absent a
+  ,   _dropping        ::  MapW DroppingT Absent a
+  ,   _serving        ::  MapW ServingT Absent a
+  ,   _releasing      ::  MapW ReleasingT Absent a
+  ,   _final          ::  MapW FinalT Absent a
   }
 
 
@@ -52,21 +53,21 @@ instance Monoid (World a) where
             (e `mappend` e')
             (h `mappend` h')
 
-data Chatting s a = Chatting (Idx Some s) (Chat a)
+data Chatting s a = Chatting (Idx Absent s) (Chat a)
 
 data StepT = NewT | OtherT
 
 data Protocol r u a where
   New :: Bargain a -> Slot a -> Zone u a -> Protocol NewT u a
-  Abort :: Idx u ProposalT -> Protocol OtherT u a
-  Appointment :: Idx (Opponent u) ProposalT  -> Place u a -> Protocol OtherT u a
+  Abort :: Idx (Present u) ProposalT -> Protocol OtherT u a
+  Appointment :: Idx (Present (Opponent u)) ProposalT  -> Place u a -> Protocol OtherT u a
   ChatWaiting :: Chatting WaitingT a -> Protocol OtherT u a
   ChatServing :: Chatting ServingT a -> Protocol OtherT u a
   ChatReleasing :: Chatting ReleasingT a -> Protocol OtherT u a
-  StartDrop :: Idx Some WaitingT -> Protocol OtherT Giver a
-  Fail :: Idx Some ServingT  -> Failure a -> Protocol OtherT Giver a
-  Success :: Idx Some ReleasingT  -> Feedback a -> Protocol OtherT Taker a
-  EndDrop :: Idx Some DroppingT -> Feedback a -> Protocol OtherT Taker a
+  StartDrop :: Idx Absent WaitingT -> Protocol OtherT Giver a
+  Fail :: Idx Absent ServingT  -> Failure a -> Protocol OtherT Giver a
+  Success :: Idx Absent ReleasingT  -> Feedback a -> Protocol OtherT Taker a
+  EndDrop :: Idx Absent DroppingT -> Feedback a -> Protocol OtherT Taker a
 
 
 class Step m r a where

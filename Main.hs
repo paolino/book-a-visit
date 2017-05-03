@@ -12,9 +12,11 @@
 {-# language ScopedTypeVariables #-}
 {-# language ConstraintKinds #-}
 {-# language DeriveAnyClass #-}
+{-# language OverloadedStrings #-}
 
 module Main where
-
+import Lib (MS,ES,DS, Message, domMorph, EitherG(LeftG,RightG), rightG,leftG, Cable,sselect)
+import Reflex.Dom hiding (Delete, Insert, Link)
 import Data.Bifunctor
 import Control.Lens
 import Data.Data.Lens
@@ -26,6 +28,7 @@ import System.Random
 import qualified Data.Map as M
 import Status
 import World
+import Data.Text
 ---------- example -------------------------------
 type instance Bargain () = String
 type instance Part u () = String
@@ -51,4 +54,8 @@ main = do
   print k
   Right w1 <- return $ step (OtherI $ FromGiver "vet dott Colla" (Appointment i (24,23))) w
   print w1
+  mainWidget $ do
+    divClass "operation" $ text $ pack $ show w1
 
+
+  return ()

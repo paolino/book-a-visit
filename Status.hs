@@ -12,6 +12,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language ConstraintKinds #-}
 {-# language PolyKinds #-}
+{-# language TypeInType #-}
 
 module Status where
 
@@ -23,10 +24,17 @@ import Data.Typeable
 import Control.Lens.TH
 import GHC.Base
 
+-- | kind to distinguish the presence of a role
+data Role = Giver | Taker
 
-data Role = Giver | Taker | Some
+
+data Presence (a :: kr)  where
+  Present :: a -> Presence a
+  Absent :: Presence a
+-- | kind to distinguish the transaction phases
 data Phase = BootT | ProposalT | WaitingT | DroppedT | ServingT | ReleasingT | DroppingT | FinalT | AcceptanceT
 
+-- | types of the identifications for both roles (what about Some ?) -- FIXIT
 type family Part (u :: Role) a
 
 type family Opponent u where
@@ -80,45 +88,50 @@ data AcceptanceData u a = AcceptanceData {
   _place :: Place u a
   }
 
+
 makeLenses ''AcceptanceData
 
-data Transaction s (u :: Role) a where
+type family UnPresent b a where
+  UnPresent (Present u) a = ConstraintsUA Show u a
+  UnPresent Absent a = ConstraintsA Show a
 
-  Proposal :: ProposalData u a -> Transaction ProposalT u a
+type PresenceRoled f (a :: k) = ERole (f (Present Giver) a)  (f (Present Taker) a)
 
+data Transaction s (u :: Presence Role) a where
+
+  Proposal :: ProposalData u a -> Transaction ProposalT (Present u) a
   -- | dropping a proposal
-  Aborted :: Roled (Transaction ProposalT) a -> Transaction FinalT Some a
+  Aborted :: PresenceRoled (Transaction ProposalT) a -> Transaction FinalT Absent a
 
   -- | Accepting a proposal (ephimeral)
-  Acceptance :: Transaction ProposalT u a -> AcceptanceData (Opponent u) a -> Transaction AcceptanceT u a
+  Acceptance :: Transaction ProposalT (Present u) a -> AcceptanceData (Opponent u) a -> Transaction AcceptanceT (Present u) a
 
   -- | chatting before initial status
-  Waiting :: Roled (Transaction AcceptanceT) a -> Transaction WaitingT Some a
+  Waiting :: PresenceRoled (Transaction AcceptanceT) a -> Transaction WaitingT Absent a
 
   -- | chatting before recursive status
-  ChattingWaiting :: Transaction WaitingT Some a -> RoledChat a -> Transaction WaitingT Some a
+  ChattingWaiting :: Transaction WaitingT Absent a -> RoledChat a -> Transaction WaitingT Absent a
 
   -- | Consensual end
-  Dropping :: Transaction WaitingT Some a -> Transaction DroppingT Some a
+  Dropping :: Transaction WaitingT Absent a -> Transaction DroppingT Absent a
 
 
-  Serving :: Transaction WaitingT Some a -> Transaction ServingT Some a
+  Serving :: Transaction WaitingT Absent a -> Transaction ServingT Absent a
 
   -- | chatting during service time
-  ChattingServing :: Transaction ServingT Some a -> RoledChat a -> Transaction ServingT Some a
+  ChattingServing :: Transaction ServingT Absent a -> RoledChat a -> Transaction ServingT Absent a
 
-  Releasing :: Transaction ServingT Some a -> Transaction ReleasingT Some a
+  Releasing :: Transaction ServingT Absent a -> Transaction ReleasingT Absent a
 
-  ChattingReleasing :: Transaction ReleasingT Some a -> RoledChat a -> Transaction ReleasingT Some a
+  ChattingReleasing :: Transaction ReleasingT Absent a -> RoledChat a -> Transaction ReleasingT Absent a
 
-  Successed :: Transaction ReleasingT Some a -> Feedback a -> Transaction FinalT Some a
+  Successed :: Transaction ReleasingT Absent a -> Feedback a -> Transaction FinalT Absent a
 
-  Dropped :: Transaction DroppingT Some a -> Feedback a -> Transaction FinalT Some a
+  Dropped :: Transaction DroppingT Absent a -> Feedback a -> Transaction FinalT Absent a
 
-  Failure :: Transaction ServingT Some a -> Failure a -> Transaction FinalT Some a
+  Failure :: Transaction ServingT Absent a -> Failure a -> Transaction FinalT Absent a
 
-deriving instance ConstraintsUA Show u a => Show (Transaction s u a)
-
+deriving instance (UnPresent u a) => Show (Transaction s u a)
 
 
 data Summary u a = Summary {
@@ -132,28 +145,31 @@ deriving instance ConstraintsUA Show u a => Show (Summary u a)
 
 makeLenses ''Summary
 
-type family SummaryT s u a where
-  SummaryT AcceptanceT u a = Summary u a
-  SummaryT ProposalT u a = Summary u a
-  SummaryT s u a = Roled Summary a
 
 class SummaryC s u a where
+  type SummaryT s u a
   summary :: Transaction s u a -> SummaryT s u a
 
-instance {-# OVERLAPPABLE #-} SummaryC ProposalT u a where
-    summary (Proposal x) = Summary x Nothing [] Nothing
+instance {-# OVERLAPPABLE #-} SummaryC ProposalT (Present u) a where
+  type SummaryT ProposalT (Present u) a = Summary u a
+  summary (Proposal x) = Summary x Nothing [] Nothing
 
-instance {-# OVERLAPPABLE #-} SummaryC AcceptanceT u a where
+instance {-# OVERLAPPABLE #-} SummaryC AcceptanceT (Present u) a where
+  type SummaryT AcceptanceT (Present u) a = Summary u a
   summary (Acceptance p x) = set acceptance (Just x) $ summary p
 
 type ModT (f :: Role -> * -> * ) (g :: Role -> * -> * ) a = forall u. f u a -> g u a
+type ModTP (f :: Presence Role -> * -> * ) (g :: Role -> * -> * ) a = forall u. f (Present u) a -> g u a
 
 onBoth :: ModT f g a -> Roled f a -> Roled g a
 onBoth s = bimap s s
+onBothP :: ModTP f g a -> PresenceRoled f a -> Roled g a
+onBothP s = bimap s s
 
-instance {-# OVERLAPS #-} SummaryC s u a where
-  summary (Aborted b) = summary `onBoth` b
-  summary (Waiting p) = summary `onBoth` p
+instance {-# OVERLAPS #-} SummaryC s Absent a where
+  type SummaryT s Absent a = Roled Summary a
+  summary (Aborted b) = summary `onBothP` b
+  summary (Waiting p) = summary `onBothP` p
   summary (ChattingWaiting p x) = over chat (x:) `onBoth`  (summary p) where
   summary (Dropping p) = summary p
   summary (Dropped p x) = set feedback (Just $ Right x) `onBoth` summary p where
@@ -163,5 +179,5 @@ instance {-# OVERLAPS #-} SummaryC s u a where
   summary (Releasing p) = summary p
   summary (ChattingReleasing p x) =  over chat (x:) `onBoth` summary p where
   summary (Successed p x) = set feedback (Just $ Right x) `onBoth` summary p
-  summary _ = error "too much inside to compute a Roled Summary a"
-
+    {-
+  -}
