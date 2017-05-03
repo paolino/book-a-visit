@@ -17,7 +17,11 @@
 ### How do I get set up? ###
 
 * Setting up requires a fully working [haskell](http://haskell.org) box with _stack_ building tool
-* Run *stack build* in the directory
+## Native application
+* Run *stack build && stack exec Status* in the directory for a gtk executable
+## Browser application
+* Run *stack build --stack-yaml stack.js.yaml* for a browser application
+* Point the browser to *.stack-work/install/x86_64-linux/lts-7.19/ghcjs-0.2.1.9007019_ghc-8.0.1/bin/Status.jexe/index.html*
 
 
 ### Contacts ###

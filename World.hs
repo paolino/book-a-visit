@@ -144,7 +144,7 @@ instance SlotMatch a => Step m OtherT a where
 
   step (other ->Tick t) w = let
     (rs,ss) = M.partition (\x -> through (view $ proposal . slot) (summary x) `matchLow` t) $ w ^. waiting
-    (ss',ts) = M.partition (\x -> through  (view $ proposal . slot) (summary x) `matchHigh` t) $ w ^. serving
+    (ss',ts) = M.partition (\x ->  through (view $ proposal . slot) (summary x) `matchHigh` t) $ w ^. serving
     in Right $ w & waiting .~ rs & serving .~ (ss' `mappend` correct Serving ss) & releasing %~ (mappend $ correct Releasing ts)
 
   step (other ->FromGiver p (ChatServing (Chatting i@(Idx j) c))) w =

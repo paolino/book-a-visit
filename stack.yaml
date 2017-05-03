@@ -49,6 +49,10 @@ packages:
     git: https://github.com/Arguggi/reflex-dom.git
     commit: 767c9b7625c61208b552f64b95719edac18a6e29
   extra-dep: true
+- location:
+    git: https://github.com/paolino/MemoTrie
+    commit: ecb838f4afc5e01400cfc867e07f78064cf55ac4
+  extra-dep: true
 
 extra-deps:
 - ghcjs-dom-0.2.4.0
@@ -57,6 +61,7 @@ extra-deps:
 - dependent-map-0.2.3.0
 - dependent-sum-0.3.2.2
 - webkitgtk3-javascriptcore-0.13.2.0
+- newtype-generics-0.5
 # Control whether we use the GHC we find on the path
 # system-ghc: true
 #

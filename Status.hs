@@ -51,9 +51,6 @@ instance Bifunctor ERole where
 
 type Roled f (a :: k) = ERole (f Giver a)  (f Taker a)
 
-through :: (forall u . f u a -> b) -> Roled f a -> b
-through f (EGiver x) = f x
-through f (ETaker x) = f x
 
 type family Zone (u :: Role) a
 type family Place (u :: Role) a
@@ -92,11 +89,11 @@ data AcceptanceData u a = AcceptanceData {
 makeLenses ''AcceptanceData
 
 type family UnPresent b a where
-  UnPresent (Present u) a = ConstraintsUA Show u a
+  UnPresent ('Present u) a = ConstraintsUA Show u a
   UnPresent Absent a = ConstraintsA Show a
 
 type PresenceRoled f (a :: k) = ERole (f (Present Giver) a)  (f (Present Taker) a)
-
+-- | Transaction
 data Transaction s (u :: Presence Role) a where
 
   Proposal :: ProposalData u a -> Transaction ProposalT (Present u) a
@@ -134,6 +131,7 @@ data Transaction s (u :: Presence Role) a where
 deriving instance (UnPresent u a) => Show (Transaction s u a)
 
 
+
 data Summary u a = Summary {
   _proposal :: ProposalData u a,
   _acceptance :: Maybe (AcceptanceData (Opponent u) a),
@@ -146,30 +144,38 @@ deriving instance ConstraintsUA Show u a => Show (Summary u a)
 makeLenses ''Summary
 
 
-class SummaryC s u a where
-  type SummaryT s u a
-  summary :: Transaction s u a -> SummaryT s u a
+class SummaryC u a where
+  summary :: forall s. Transaction s u a -> Roled Summary a
 
-instance {-# OVERLAPPABLE #-} SummaryC ProposalT (Present u) a where
-  type SummaryT ProposalT (Present u) a = Summary u a
-  summary (Proposal x) = Summary x Nothing [] Nothing
+instance SummaryC (Present Giver) a where
+  summary (Proposal x) = EGiver $ Summary x Nothing [] Nothing
+  summary (Acceptance p x) = EGiver $ set acceptance (Just x) $ (\(EGiver x) -> x) $ summary p
 
-instance {-# OVERLAPPABLE #-} SummaryC AcceptanceT (Present u) a where
-  type SummaryT AcceptanceT (Present u) a = Summary u a
-  summary (Acceptance p x) = set acceptance (Just x) $ summary p
+instance SummaryC (Present Taker) a where
+  summary (Proposal x)  = ETaker $ Summary x Nothing [] Nothing
+  summary (Acceptance p x) = ETaker $ set acceptance (Just x) $ (\(ETaker x) -> x) $ summary p
 
-type ModT (f :: Role -> * -> * ) (g :: Role -> * -> * ) a = forall u. f u a -> g u a
-type ModTP (f :: Presence Role -> * -> * ) (g :: Role -> * -> * ) a = forall u. f (Present u) a -> g u a
+type ModT (f ::  Role -> * -> * ) (g :: Role -> * -> * ) a = forall u. f u a -> g u a
 
 onBoth :: ModT f g a -> Roled f a -> Roled g a
 onBoth s = bimap s s
+    {-
+type ModTP (f :: Presence Role -> * -> * ) (g :: Role -> * -> * ) a = forall u. f (Present u) a -> g u a
 onBothP :: ModTP f g a -> PresenceRoled f a -> Roled g a
 onBothP s = bimap s s
+-}
+throughP :: (forall u . SummaryC u a => Transaction s u a -> b)
+             -> PresenceRoled (Transaction s) a -> b
+throughP f (EGiver x) = f x
+throughP f (ETaker x) = f x
 
-instance {-# OVERLAPS #-} SummaryC s Absent a where
-  type SummaryT s Absent a = Roled Summary a
-  summary (Aborted b) = summary `onBothP` b
-  summary (Waiting p) = summary `onBothP` p
+through :: (forall u . f u a -> b) -> Roled f a -> b
+through f (EGiver x) = f x
+through f (ETaker x) = f x
+
+instance  SummaryC Absent a where
+  summary (Aborted b) = summary `throughP` b
+  summary (Waiting p) = summary `throughP` p
   summary (ChattingWaiting p x) = over chat (x:) `onBoth`  (summary p) where
   summary (Dropping p) = summary p
   summary (Dropped p x) = set feedback (Just $ Right x) `onBoth` summary p where
@@ -179,5 +185,8 @@ instance {-# OVERLAPS #-} SummaryC s Absent a where
   summary (Releasing p) = summary p
   summary (ChattingReleasing p x) =  over chat (x:) `onBoth` summary p where
   summary (Successed p x) = set feedback (Just $ Right x) `onBoth` summary p
+
+
     {-
+
   -}
