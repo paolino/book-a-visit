@@ -9,9 +9,10 @@
 * Status: alpha
 
 * Documentation:
-    * ~~[Motivation and target](motivation.md)~~
-    * [Model semantic](semantic.md)
-    * ~~[Manuals](manual.md)~~
+    * ~~[Motivation and target](docs/motivation.md)~~
+    * [Model semantic](docs/semantic.md)
+    * ~~[Manual of operation](docs/manual.md)~~
+    * ~~[API](docs/API.md)~~
 
 
 ### How do I get set up? ###
