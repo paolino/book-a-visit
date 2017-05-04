@@ -21,7 +21,6 @@ module World where
 import Status
 import Control.Lens.TH (makeLenses)
 import Control.Lens hiding (dropping)
-import Valid
 import Data.Maybe (fromJust)
 import qualified Data.Map as M
 import Data.Map (Map)
