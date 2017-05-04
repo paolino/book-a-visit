@@ -35,12 +35,13 @@ data Presence (a :: kr)  where
 data Phase = BootT | ProposalT | WaitingT | DroppedT | ServingT | ReleasingT | DroppingT | FinalT | AcceptanceT
 
 -- | types of the identifications for both roles (what about Some ?) -- FIXIT
-type family Part (u :: Role) a
+data family Part (u :: Role) a
 
 type family Opponent u where
   Opponent Giver = Taker
   Opponent Taker = Giver
 
+type Reflexive u = (Opponent (Opponent u) ~ u)
 data ERole x y = EGiver x | ETaker y deriving (Show,Eq)
 
 makePrisms ''ERole
@@ -52,8 +53,9 @@ instance Bifunctor ERole where
 type Roled f (a :: k) = ERole (f Giver a)  (f Taker a)
 
 
+
 type family Zone (u :: Role) a
-type family Place (u :: Role) a
+data family Place (u :: Role) a
 type family Slot a
 type family Bargain a
 type family Chat a

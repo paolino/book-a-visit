@@ -16,9 +16,20 @@
 {-# language RecursiveDo #-}
 {-# language QuasiQuotes #-}
 {-# language TypeInType #-}
-module Main where
+{-# language ViewPatterns #-}
+{-# language OverloadedLists #-}
 
-import Lib -- (MS,ES,DS, Message, domMorph, EitherG(LeftG,RightG), rightG,leftG, Cable,sselect)
+
+
+
+-- https://youtu.be/btyhpyJTyXg?list=RDG8yEe55gq2c
+--
+module Main where
+import Data.Dependent.Map (DMap,DSum((:=>)), singleton)
+import qualified Data.Dependent.Map as DMap
+import Data.GADT.Compare (GCompare)
+import Data.GADT.Compare.TH
+import Lib -- (MS,ES,DS, Reason, domMorph, EitherG(LeftG,RightG), rightG,leftG, Cable,sselect)
 import Reflex.Dom hiding (Delete, Insert, Link)
 import Data.Bifunctor
 import Control.Lens hiding (dropping)
@@ -26,28 +37,32 @@ import Data.Data.Lens
 import Data.Data
 import Data.Typeable
 import Control.Lens.TH
-import GHC.Base
 import System.Random
 import qualified Data.Map as M
 import Status
 import World
-import Data.Text
+import Data.Text (Text,pack,unpack)
 import Data.String.Here
 import Data.String
 import Control.Monad
+import Data.Maybe
 import Data.Monoid
+import Control.Monad.Trans
+import Data.Either
 ---------- example -------------------------------
 type instance Bargain () = String
-type instance Part u () = String
+data instance Part Taker () = Client {fromClient :: String} deriving (Show,Eq)
+data instance Part Giver () = Business {fromBusiness :: String} deriving (Show,Eq)
 type instance Chat () = String
 type instance Zone u () = (Float,Float,Maybe Float)
-type instance Place u () = (Float,Float)
+data instance Place u () = Place (Float,Float) deriving (Read, Show)
 type instance Slot () = (Float,Float)
 -- type instance Time () = (Float)
 type instance Failure () = String
 type instance Feedback () = String
 
 instance SlotMatch () where
+
   data Time () = T Float
   matchLow (t0 , t1) (T t) = t >= t0
   matchHigh (t0 , t1) (T t) = t >= t1
@@ -56,96 +71,168 @@ css = [here|
   div.region {
     background:yellow
     }
+  div.button.logger {
+    color:red
+  }
+  div.small {
+    font-size:80%;
+    background:lightgrey;
+    margin:2em
+  }
   |]
 
-data Depth = Icon | Disclosed deriving Eq
 
 deriving instance Show (World ())
 
+open  :: MS m
+      => Roled Part () -- who I am
+      -> World ()
+      -> m (ES (World ()))
+open u w = el "ul" $ do
+  bargain :: DS String <- el "li" $ do
+          text "bargain: "
+          fmap unpack <$> view textInput_value <$> textInput def
 
--- data Context a =
-showSummary (a,b) r = el "ul" $ do
-      el "li" $ do
-        text $ a <> ": "
-        text $ pack $ (r ^. proposal . proponent)
+  zone :: DS String <- el "li" $ do
+          text "zone: "
+          fmap unpack <$> view textInput_value <$> textInput def
 
-      case r ^. acceptance of
-          Nothing -> return ()
-          Just a ->   do
-            el "li" $ do
-              text $ b <> ": "
-              text $ pack $ (a ^. accepter)
+  time <- el "li" $ do
+          text "time: "
+          fmap unpack <$> view textInput_value <$> textInput def
 
-      el "li" $ do
-        text "when: "
-        text $ pack $ show $ (r ^. proposal . slot)
+  submit <- el "li" $ do
+          button "submit"
+  -- let tagger e = New <$> bargain <*> (read <$> time) <*> (read <$> zone)
+  let (e :: ES (Reason NewT ()))  = case u of
+          EGiver u -> fmap (FromGiver u) $ (New <$> bargain <*> (read <$> time) <*> (read <$> zone)) `tagPromptlyDyn` submit
+          ETaker u -> fmap (FromTaker u) $ (New <$> bargain <*> (read <$> time) <*> (read <$> zone)) `tagPromptlyDyn` submit
 
-      el "li" $ do
-        text "where: "
-        text $ pack $ case (r ^. acceptance) of
-                        Nothing -> show (r ^. proposal . zone)
-                        Just a -> show $ a ^. place
+  return $ pushAlways (\r -> liftIO $ step (NewI (randomIO, r)) w) e
 
-      el "li" $ do
-        text "what: "
-        text $ pack $ (r ^. proposal . bargain)
+data PrenoteA u a = PrenoteA (Idx ProposalT (Present (Opponent u))) (Part u a)
 
-      let showChat t g (ETaker (RChat x)) = el "li" $ do
-            text "client: "
-            text $ pack $ x
+data Iconified  = Iconified | Disclosed
 
-          showChat t g (EGiver (RChat x)) = el "li" $ do
-            text "business: "
-            text $ pack $ x
+data TransitionOutput a where
+  IconState :: TransitionOutput Iconified
+  WorldChange :: TransitionOutput (World ())
 
-      el "ul" $ do
-          forM_ (r ^. chat) $ showChat (r ^. proposal . proponent) (fmap (view accepter) $ r ^. acceptance)
-          t <-  textInput def
-          return $ current (view textInput_value t) `tag` keypress Enter t
-
-showRoledSummary :: MS m => Roled Summary () -> m (ES Text)
-showRoledSummary s = case s of
-            EGiver r -> showSummary ("business","client") r
-            ETaker r -> showSummary ("client","business") r
-
-slice :: forall m s pr  b. (SummaryC pr (), MS m) => Text -> Text -> DS (MapW s pr ()) -> m (ES b)
-slice s s' l = divClass s $ do
-  divClass "region" $ text s'
-  let -- f :: MapW ProposalT pr a -> m (ES b)
-      f l = do
-        el "ul" $ forM_ (M.assocs l) $ \(Idx i,x) -> el "li" $ do
-          rec   s <- holdDyn Icon e
-                let f Icon =  (Disclosed <$) <$>  elClass "span" "icon" (button (pack $ Prelude.take 5 $ show $ i))
-                    f Disclosed = elClass "span" "diclosed" $ do
-                        e <- (Icon <$) <$>  button "close"
-                        mesg <- showRoledSummary $ summary x
-                        return e
-                e <- domMorph f s
-          return ()
-        return never
+deriveGEq ''TransitionOutput
+deriveGCompare ''TransitionOutput
 
 
-  domMorph f l
+proposalWidget  :: (SummaryC ('Present u) (), MS m)
+                => Transaction ProposalT (Present u) ()
+                -> (Place (Opponent u) () -> Either Except (World ()))
+                -> Iconified
+                -> m (Cable TransitionOutput)
 
-fromIdx (Idx i) = Idx i
+proposalWidget t _ Iconified  = do
+  b <- divClass "icon" (button (pack $ show $ summary t))
+  return $ wire (IconState :=> Disclosed <$ b)
+
+
+proposalWidget t step Disclosed = do
+  b <- divClass "abort" (button (pack "close"))
+  let f Nothing = el "ul" $ do
+          place :: DS String <- el "li" $ do
+              text "place: "
+              fmap unpack <$> view textInput_value <$> textInput def
+          el "li" $ do
+            b <- button "submit"
+            return $ Just <$> ((read <$> place) `tagPromptlyDyn` b)
+      f (Just e) = do
+        divClass "error" $ text $ pack $ show e
+        (Nothing <$) <$>  button "got it"
+  rec   let   g p = step p
+              w' = g <$> fmapMaybe id zm
+              cm = leftmost [Just <$> lefting w',Nothing <$ ffilter isNothing zm]
+        zm <- domMorph f m
+        m <- holdDyn Nothing cm
+
+  return $ merge [IconState :=> Iconified <$ b, WorldChange :=> righting w']
+
+
+righting e = (\(Right x) -> x) <$> ffilter isRight e
+lefting e = (\(Left x) -> x) <$> ffilter isLeft e
+
+prenote :: (Reflexive u, SummaryC ('Present (Opponent u)) (), MS m)
+        => Part u ()
+        -> (Idx ProposalT (Present (Opponent u)) -> Place u () -> Either Except (World()))
+        -> [(Idx ProposalT (Present (Opponent u)), Transaction ProposalT (Present (Opponent u)) ())]
+        -> m (ES (World ()))
+
+prenote u step xs = el "ul" $ (fmap leftmost) $ forM xs$ \(i,t) -> el "li" $ do
+
+          rec   ws <- domMorph (proposalWidget t $ step i) s
+                s <- holdDyn Iconified (pick IconState ws)
+
+          return $ pick WorldChange ws
+
+----------------------- fake login --------------------------------------
+
+users = map (ETaker . Client) ["Paolo Veronelli","Patrizio Iezzi", "Mario Rossi"]
+vets = map (EGiver . Business) ["Dottor Volatile", "Piero dei Pesci", "Marta dal Gatto"]
+
+data Select a = Selected a | Selecting
+
+fakeLogin :: MS m => m (DS (Maybe (Roled Part ())))
+fakeLogin = do
+  let f (Selected u) = (Selecting <$) <$> do
+                        divClass "logger" $ button (pack $  maybe "login" show $ bimap  fromBusiness fromClient <$> u)
+      f Selecting = (fmap Selected . leftmost) <$> do
+        xs <- forM (users ++ vets) $ \u -> divClass "login" $
+            (Just u <$) <$> button (pack $ show $ bimap  fromBusiness fromClient u)
+
+        x <- (Nothing <$) <$>  divClass "logger" (button "logout")
+
+        return $ x:xs
+
+  rec change <-domMorph f login
+      login <- holdDyn (Selected Nothing) change
+
+  let selected (Selected x) = Just x
+      selected _ = Nothing
+
+  r <- holdDyn Nothing $ fmapMaybe selected change
+  return $ r
+
+----------------------------------------------------------------
 main = do
-  w <- step (NewI (randomIO, FromTaker "paolo veronelli" (New "visita ortopedica , 20€" (50 , 51) (24,23,Nothing)))) (mempty :: World ())
-  let (i,k) = M.findMin $ w ^. proposalTaker
-  Right w1 <- return $ step (OtherI $ FromGiver "vet dott Colla" (Appointment i (24,23))) w
-  Right w2 <- return $ step (OtherI $ FromTaker "paolo veronelli" (ChatWaiting (Chatting (fromIdx i) "grazie, ottimo"))) w1
+  -- login
   mainWidgetWithCss (fromString css) $ do
-    b <- button "refresh"
-    l  :: DS (World ()) <- holdDyn w2 (mempty <$ never) -- :: DS (World ())
 
-    slice "proposalTaker" "Proposal from clients" $ view proposalTaker <$> l
-    slice "proposalGiver" "Proposal from business" $ view proposalGiver <$> l
-    slice "waiting" "Appointments" $ view waiting <$> l
+    u <- fakeLogin
+
+    let f (Nothing,w) = divClass "nologin" (text "please, login!") >> return never
+        f (Just u,w) = divClass "logged" $ do
+          wo <- divClass "propose" $ do
+              el "h3" $ text "Your new proposal"
+              open u w
+
+          wp <- divClass "accept" $ case u of
+              ETaker u -> case M.assocs $ w ^. proposalGiver of
+                          [] -> return never
+                          xs -> do
+                              el "h3" $ text "Proposals you can take"
+                              prenote u (\i p -> step (OtherI (FromTaker u (Appointment i p))) w) xs
+
+              EGiver u ->case M.assocs $ w ^. proposalTaker of
+                          [] -> return never
+                          xs -> do
+                              el "h3" $ text "Proposals you can take"
+                              prenote u (\i p  -> step (OtherI (FromGiver u (Appointment i p))) w) xs
+
+          divClass "abort" $ do
+              el "h3" $ text "Proposals you can abort"
+
+          return $ leftmost [wo,wp]
+
+    rec   world :: DS (World ()) <- holdDyn mempty change
+          change <- domMorph f $ (,) <$> u <*> world
+    el "h3" $ text "This small world"
+    divClass "small" $ dynText $ pack <$> show <$> world
     return ()
-      {-
-    slice "dropping" "Renounces" dropping l
-    slice "serving" "Running" serving l
-    slice "releasing" "Feedbackable" releasing l
-    slice "final" "Done" proposalTaker l
--}
-
   return ()
+

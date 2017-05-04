@@ -26,8 +26,8 @@ import Data.Maybe (fromJust)
 import qualified Data.Map as M
 import Data.Map (Map)
 
-newtype Idx (u :: Presence Role) (s::Phase) = Idx Integer deriving (Eq, Ord, Show)
-type MapW (s :: Phase) (u :: Presence Role) a = Map (Idx u s) (Transaction s u a)
+newtype Idx (s::Phase) (u :: Presence Role)  = Idx Integer deriving (Eq, Ord, Show)
+type MapW (s :: Phase) (u :: Presence Role) a = Map (Idx s u ) (Transaction s u a)
 
 data World a = World
   {   _proposalGiver  ::  MapW ProposalT (Present Giver) a
@@ -53,21 +53,21 @@ instance Monoid (World a) where
             (e `mappend` e')
             (h `mappend` h')
 
-data Chatting s a = Chatting (Idx Absent s) (Chat a)
+data Chatting s a = Chatting (Idx s Absent) (Chat a)
 
 data StepT = NewT | OtherT
 
 data Protocol r u a where
   New :: Bargain a -> Slot a -> Zone u a -> Protocol NewT u a
-  Abort :: Idx (Present u) ProposalT -> Protocol OtherT u a
-  Appointment :: Idx (Present (Opponent u)) ProposalT  -> Place u a -> Protocol OtherT u a
+  Abort :: Idx ProposalT (Present u) -> Protocol OtherT u a
+  Appointment :: Idx ProposalT (Present (Opponent u))   -> Place u a -> Protocol OtherT u a
   ChatWaiting :: Chatting WaitingT a -> Protocol OtherT u a
   ChatServing :: Chatting ServingT a -> Protocol OtherT u a
   ChatReleasing :: Chatting ReleasingT a -> Protocol OtherT u a
-  StartDrop :: Idx Absent WaitingT -> Protocol OtherT Giver a
-  Fail :: Idx Absent ServingT  -> Failure a -> Protocol OtherT Giver a
-  Success :: Idx Absent ReleasingT  -> Feedback a -> Protocol OtherT Taker a
-  EndDrop :: Idx Absent DroppingT -> Feedback a -> Protocol OtherT Taker a
+  StartDrop :: Idx WaitingT Absent  -> Protocol OtherT Giver a
+  Fail :: Idx ServingT Absent   -> Failure a -> Protocol OtherT Giver a
+  Success :: Idx ReleasingT Absent -> Feedback a -> Protocol OtherT Taker a
+  EndDrop :: Idx DroppedT Absent -> Feedback a -> Protocol OtherT Taker a
 
 
 class Step m r a where
@@ -75,7 +75,7 @@ class Step m r a where
   data Input m r a
   step :: Input  m r a -> World a -> Output  m r a
 
-data Event r a = FromGiver (Part Giver a) (Protocol r Giver a) | FromTaker (Part Taker a) (Protocol r Taker a) | Tick (Time a)
+data Reason r a = FromGiver (Part Giver a) (Protocol r Giver a) | FromTaker (Part Taker a) (Protocol r Taker a) | Tick (Time a)
 
 data Except = IndexNotFound | WrongAuthor deriving Show
 
@@ -86,7 +86,7 @@ class SlotMatch a where
   matchLow :: Slot a -> Time a -> Bool
 
 
-correct :: (t2 -> a) -> Map (Idx t1 t) t2 -> Map (Idx u s) a
+correct :: (t2 -> a) -> Map (Idx t t1) t2 -> Map (Idx s u) a
 correct t = M.fromList . map f . M.assocs where
   f (Idx i,x) = (Idx i, t x)
 
@@ -106,11 +106,11 @@ move l1 l2 j w c f =     case w ^. l2 . at (Idx j) of
                   Just e ->  Left e
 
 noCheck = const Nothing
-
+ino = const $ Just IndexNotFound
 instance Monad m => Step m NewT a where
-  -- step :: forall a  . (SlotMatch a, Monad ) =>  Integer -> Event a -> World a ->  (Either Except (World a))
+  -- step :: forall a  . (SlotMatch a, Monad ) =>  Integer -> Reason a -> World a ->  (Either Except (World a))
   type Output m NewT a =  m (World a)
-  data Input m NewT a = NewI (m Integer, Event NewT a)
+  data Input m NewT a = NewI (m Integer, Reason NewT a)
   step (NewI (new,FromGiver p (New b s z))) w = do
     n <- new
     return $ ((proposalGiver . at (Idx n) .~ Just (Proposal (ProposalData b p z s))) w)
@@ -122,7 +122,7 @@ instance Monad m => Step m NewT a where
 other (OtherI x) = x
 instance SlotMatch a => Step m OtherT a where
   type Output m OtherT a = Either Except (World a)
-  data Input m OtherT a = OtherI (Event OtherT a)
+  data Input m OtherT a = OtherI (Reason OtherT a)
 
   step (other -> FromGiver p (Abort i@(Idx j))) w =
     move final proposalGiver j w noCheck $ Aborted . EGiver
