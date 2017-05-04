@@ -22,7 +22,8 @@
 ## Browser application
 * Run *stack setup --stack-yaml stack.js.yaml && stack build --stack-yaml stack.js.yaml* for a browser application
 * Point the browser  *firefox .stack-work/install/x86_64-linux/lts-7.19/ghcjs-0.2.1.9007019_ghc-8.0.1/bin/Status.jsexe/index.html*
-
+## Test online
+* Point the browser to [service (alpha)](http://lambdasistemi.net/Status.jsexe)
 
 ### Contacts ###
 
