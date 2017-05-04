@@ -1,6 +1,7 @@
 ## functional
 
 - + validity checks in Status.Step instances
+- + validity checks at field/parse level
 
 ## refactors
 
