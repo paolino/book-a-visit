@@ -18,9 +18,9 @@
 
 * Setting up requires a fully working [haskell](http://haskell.org) box with _stack_ building tool
 ## Native application
-* Run *stack build && stack exec Status* in the directory for a gtk executable
+* Run *stack setup && stack build && stack exec Status* in the directory for a gtk executable
 ## Browser application
-* Run *stack build --stack-yaml stack.js.yaml* for a browser application
+* Run *stack setup --stack-yaml stack.js.yaml && stack build --stack-yaml stack.js.yaml* for a browser application
 * Point the browser  *firefox .stack-work/install/x86_64-linux/lts-7.19/ghcjs-0.2.1.9007019_ghc-8.0.1/bin/Status.jsexe/index.html*
 
 
