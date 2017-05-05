@@ -77,11 +77,12 @@ css = [here|
 checkProponent :: Eq (Part u a)  => Part u a -> Transaction s (Present u) a -> Bool
 checkProponent u (Proposal t)  = t ^. proponent == u
 
-
 involved (ETaker u) (ETaker s) = s ^. proposal . proponent == u
 involved (ETaker u) (EGiver s) = s ^? acceptance . _Just . accepter == Just u
 involved (EGiver u) (EGiver s) = s ^. proposal . proponent == u
 involved (EGiver u) (ETaker s) = s ^? acceptance . _Just . accepter == Just u
+
+
 
 abortDriver :: (Showers a,Readers a, SlotMatch a, Eq (Part Taker a), Eq (Part Giver a), MS m) => Roled Part a -> World a -> m (ES (World a))
 abortDriver u w = divClass "abort" $ case u of
