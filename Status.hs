@@ -23,6 +23,8 @@ import Data.Data
 import Data.Typeable
 import Control.Lens.TH
 import GHC.Base
+import Data.Aeson.TH
+import Data.Char
 
 -- | kind to distinguish the presence of a role
 data Role = Giver | Taker
@@ -54,7 +56,7 @@ type Roled f (a :: k) = ERole (f Giver a)  (f Taker a)
 
 
 
-type family Zone (u :: Role) a
+data family Zone (u :: Role) a
 data family Place (u :: Role) a
 type family Slot a
 type family Bargain a
@@ -133,7 +135,6 @@ data Transaction s (u :: Presence Role) a where
 deriving instance (UnPresent u a) => Show (Transaction s u a)
 
 
-
 data Summary u a = Summary {
   _proposal :: ProposalData u a,
   _acceptance :: Maybe (AcceptanceData (Opponent u) a),
@@ -148,6 +149,9 @@ makeLenses ''Summary
 
 class SummaryC u a where
   summary :: forall s. Transaction s u a -> Roled Summary a
+
+throughSummary :: SummaryC u a => (forall u. Summary u a -> d) -> Transaction s u a -> ERole d d
+throughSummary f y = bimap f f (summary y)
 
 instance SummaryC (Present Giver) a where
   summary (Proposal x) = EGiver $ Summary x Nothing [] Nothing

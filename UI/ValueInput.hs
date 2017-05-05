@@ -25,7 +25,7 @@
 
 -- https://youtu.be/btyhpyJTyXg?list=RDG8yEe55gq2c
 --
-module UI.Proposal where
+module UI.ValueInput where
 import Data.Dependent.Map (DMap,DSum((:=>)), singleton)
 import qualified Data.Dependent.Map as DMap
 import Data.GADT.Compare (GCompare)
@@ -53,29 +53,24 @@ import Data.Either
 
 
 import UI.Constraints
-import UI.ValueInput
 
+background c = [("style","background-color:" <> c)]
+onlength c d [] = c
+onlength c d xs = d xs
 
-openWidget  :: (ReadersU u a, MS m)
-      => Part u a -- who I am
-      -> ((Bargain a,Slot a, Zone u a) -> IO (World a))
-      -> m (ES (World a))
-openWidget u step = el "ul" $ do
-  bargain :: DS String <- el "li" $ do
-          text "bargain: "
-          fmap unpack <$> view textInput_value <$> textInput def
+valueInput :: (MS m, Read a) => Text -> m (DS (Maybe a))
+valueInput field = do
+  rec   valueC <- holdDyn (background "indianred") $ background <$> (onlength "indianred" $ const "lightgreen") <$> valueE
+        valueD <- do
+                text $ field <> ": "
+                t <- textInput (def & textInputConfig_attributes .~ valueC)
+                return $ reads <$> unpack <$> view textInput_value t
+        let valueE = updated valueD
+  holdDyn Nothing $ onlength Nothing (Just . fst . head) <$> valueE
 
-  zone <-  el "li" $ valueInput "zone"
+submit c = do
+  let f False = return never
+      f True =  button "submit"
+  domMorph f c
 
-  time <-  el "li" $ valueInput "time"
-
-  sub <- submit (liftM2 (&&) (isJust <$> time) (isJust <$> zone))
-
-  return $ pushAlways (\r -> liftIO $ step r) $ ((,,) <$> bargain <*> (fromJust <$> time) <*> (fromJust <$> zone)) `tagPromptlyDyn` sub
-
-open (EGiver u) w = openWidget u (\(b,t,z) -> liftIO $ step (NewI (randomIO, FromGiver u (New b t z))) w)
-open (ETaker u) w = openWidget u (\(b,t,z) -> liftIO $ step (NewI (randomIO, FromTaker u (New b t z))) w)
-
-partitionE :: (a -> Bool) -> ES a -> (ES a, ES a)
-partitionE f = fanEither . fmap (\x -> if f x then Left x else Right x)
 

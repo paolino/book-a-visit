@@ -1,3 +1,4 @@
+
 {-# language DataKinds #-}
 {-# language TypeFamilies #-}
 {-# language GADTs #-}
@@ -24,7 +25,7 @@
 
 -- https://youtu.be/btyhpyJTyXg?list=RDG8yEe55gq2c
 --
-module UI.Acceptance where
+module UI.Abort where
 
 import Data.Dependent.Map (DMap,DSum((:=>)), singleton)
 import qualified Data.Dependent.Map as DMap
@@ -50,38 +51,35 @@ import Data.Maybe
 import Data.Monoid
 import Control.Monad.Trans
 import Data.Either
-
 import UI.Constraints
-import UI.Summary
-import UI.ValueInput
 
 data Iconified  = Iconified | Disclosed
 
 
-acceptanceWidget  :: (Read (Place (Opponent u) a), Showers a, SummaryC ('Present u) a, MS m)
+abortWidget  :: (Read (Place (Opponent u) a), Showers a, SummaryC ('Present u) a, MS m)
                 => Transaction ProposalT (Present u) a
-                -> (Place (Opponent u) a -> Either Except (World a))
+                -> Either Except (World a)
                 -> Iconified
                 -> m (Cable (EitherG Iconified (World a)))
 
-acceptanceWidget t _ Iconified  = do
-  el "span" $ case summary t of ETaker s -> showSummary s
-  b <- el "span" (button "accept")
+abortWidget t _ Iconified  = do
+  b <- divClass "icon" (button (pack $ show $ summary t))
   return $ wire (LeftG :=> Disclosed <$ b)
 
 
-acceptanceWidget t step Disclosed = do
+abortWidget t step Disclosed = do
   b <- divClass "abort" (button (pack "close"))
   let f Nothing = el "ul" $ do
-          place <- el "li" $ valueInput "place"
-          b <- submit (isJust <$> place)
-          return $ Just <$> ((fromJust <$> place) `tagPromptlyDyn` b)
+          divClass "modal" $ text "really want to abort the proposal?"
+          el "li" $ do
+            b <- button "yes"
+            return $ wire (RightG :=> True <$ b)
       f (Just e) = do
         divClass "error" $ text $ pack $ show e
-        (Nothing <$) <$>  button "got it"
-  rec   let   g p = step p
-              w' = g <$> fmapMaybe id zm
-              cm = leftmost [Just <$> lefting w',Nothing <$ ffilter isNothing zm]
+        wire' LeftG <$>  button "got it"
+  rec   let
+            w' = step <$ pick RightG zm
+            cm = leftmost [Just <$> lefting w',Nothing <$ pick LeftG zm]
         zm <- domMorph f m
         m <- holdDyn Nothing cm
 
@@ -91,15 +89,14 @@ acceptanceWidget t step Disclosed = do
 righting e = (\(Right x) -> x) <$> ffilter isRight e
 lefting e = (\(Left x) -> x) <$> ffilter isLeft e
 
-prenote :: (Showers a, Read (Place u a), Reflexive u, SummaryC ('Present (Opponent u)) a, MS m)
-        => Part u a
-        -> (Idx ProposalT (Present (Opponent u)) -> Place u a -> Either Except (World a))
+abort :: (Showers a, Read (Place u a),  Reflexive u, SummaryC ('Present (Opponent u)) a, MS m)
+      => (Idx ProposalT (Present (Opponent u)) -> Either Except (World a))
         -> [(Idx ProposalT (Present (Opponent u)), Transaction ProposalT (Present (Opponent u)) a)]
         -> m (ES (World a))
 
-prenote u step xs = el "ul" $ (fmap leftmost) $ forM xs$ \(i,t) -> el "li" $ do
+abort step xs = el "ul" $ (fmap leftmost) $ forM xs$ \(i,t) -> el "li" $ do
 
-          rec   ws <- domMorph (acceptanceWidget t $ step i) s
+          rec   ws <- domMorph (abortWidget t $ step i) s
                 s <- holdDyn Iconified (pick LeftG ws)
 
           return $ pick RightG ws
