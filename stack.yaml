@@ -3,18 +3,27 @@ resolver: lts-7.19
 extra-package-dbs: [hackage]
 
 packages:
+
 - location: '.'
 - location:
     git: https://github.com/reflex-frp/reflex.git
-    commit: 63cb8f83deb68f416ba95afe3d1c5372a40dca43
+    commit: a63aba90bdea5ae5b3e1506d468613bdfedcdfa3
   extra-dep: true
 - location:
-    git: https://github.com/reflex-frp/reflex-dom.git
-    commit: 957be7e0622fe79cdfb4cb4919c6a67f89a00b57
-  subdirs:
-    - reflex-dom
-    - reflex-dom-core
+    git: https://github.com/Arguggi/reflex-dom.git
+    commit: 767c9b7625c61208b552f64b95719edac18a6e29
   extra-dep: true
+    #- location:
+    #git: https://github.com/reflex-frp/reflex.git
+    #commit: 63cb8f83deb68f416ba95afe3d1c5372a40dca43
+    #extra-dep: true
+    #- location:
+    #git: https://github.com/reflex-frp/reflex-dom.git
+    #commit: 957be7e0622fe79cdfb4cb4919c6a67f89a00b57
+    #subdirs:
+    #- reflex-dom
+    #- reflex-dom-core
+    #extra-dep: true
 # for haddock is broken on this package on  hacage
 - location:
     git: https://github.com/paolino/MemoTrie
