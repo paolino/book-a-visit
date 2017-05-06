@@ -56,7 +56,7 @@ vets = map (EGiver . Business) ["Dottor Volatile", "Piero dei Pesci", "Marta dal
 data Select a = Selected a | Selecting
 
 fakeLogin :: MS m => m (DS (Maybe (Roled Part S)))
-fakeLogin = do
+fakeLogin = divClass "fakelogin" $ do
   let f (Selected u) = (Selecting <$) <$> do
                         divClass "logger" $ button (pack $  maybe "login" show $ bimap  fromBusiness fromClient <$> u)
       f Selecting = (fmap Selected . leftmost) <$> do

@@ -58,20 +58,7 @@ import UI.Summary
 import Instance.Simple
 
 
-css = [here|
-  div.region {
-    background:yellow
-    }
-  div.button.logger {
-    color:red
-  }
-  ul {list-style-type: none;}
-  div.small {
-    font-size:80%;
-    background:lightgrey;
-    margin:2em
-  }
-  |]
+css = [hereFile|style.css|]
 
 
 checkProponent :: Eq (Part u a)  => Part u a -> Transaction s (Present u) a -> Bool

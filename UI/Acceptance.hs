@@ -65,7 +65,9 @@ acceptanceWidget  :: (Read (Place (Opponent u) a), Showers a, SummaryC ('Present
                 -> m (Cable (EitherG Iconified (World a)))
 
 acceptanceWidget t _ Iconified  = do
-  el "span" $ case summary t of ETaker s -> showSummary s
+  el "span" $ case summary t of
+                ETaker s -> showSummary s
+                EGiver s -> showSummary s
   b <- el "span" (button "accept")
   return $ wire (LeftG :=> Disclosed <$ b)
 
