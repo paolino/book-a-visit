@@ -1,0 +1,32 @@
+h3 {
+  font-size:130%;
+  font-weight:normal;
+  
+}
+div.region {
+    background:yellow
+    }
+  div.button.logger {
+    color:red
+  }
+  ul {list-style-type: none;}
+  div.small {
+    font-size:80%;
+    background:lightgrey;
+    margin:2em
+  }
+input {height:2em;
+  border-radius: 4px;
+  border-color:black;
+  border-width:1px;
+  margin:1px;
+}
+button  {
+  background-color:azure;
+  border:2px outset blueviolet;
+  border-radius:4px;
+  padding:0.5em;
+  font-size:110%;
+}
+.logger button {float:right;}
+.login button {float:right;}
