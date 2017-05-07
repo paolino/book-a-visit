@@ -50,23 +50,34 @@ import Data.Maybe
 import Data.Monoid
 import Control.Monad.Trans
 import Data.Either
-
+import Data.List
+import Control.Monad
 
 import UI.Constraints
 
-background c = [("style","background-color:" <> c)]
-onlength c d [] = c
-onlength c d xs = d xs
 
-valueInput :: (MS m, Read a) => Text -> m (DS (Maybe a))
-valueInput field = do
-  rec   valueC <- holdDyn (background "indianred") $ background <$> (onlength "indianred" $ const "lightgreen") <$> valueE
+
+radioChecks :: (MS m, Show a) => [a] -> m (DS (Maybe a))
+radioChecks xs = do
+  rec  (leftmost -> (v :: ES Int), ds) <- el "ul" $ fmap unzip .  forM (zip [0..] xs) $ \(i,x) -> el "li" $ do
+
+                c <- fmap value $ checkbox False $ def  & checkboxConfig_setValue .~ (fmap $ (==) i) v
+                divClass "radiochecksText" $ text $ pack $ show $ x
+                return ((i <$) . ffilter id . updated $ c, (\y -> if y then Just x else Nothing) <$> c)
+
+  return $ fmap msum $ sequence ds
+
+onlength c d Nothing = c
+onlength c d (Just xs) = d xs
+
+valueInput :: (MS m) => Text -> (String -> Maybe a) -> m (DS (Maybe a))
+valueInput placeholder reads = do
+  rec   bg <- holdDyn "invalidInput" $ (onlength "invalidInput" $ const "validInput") <$> valueE
         valueD <- do
-                text $ field <> ": "
-                t <- textInput (def & textInputConfig_attributes .~ valueC)
+                t <- elDynClass "div" bg $ textInput $ def & textInputConfig_attributes .~ constDyn [("placeholder",placeholder)]
                 return $ reads <$> unpack <$> view textInput_value t
         let valueE = updated valueD
-  holdDyn Nothing $ onlength Nothing (Just . fst . head) <$> valueE
+  holdDyn Nothing  valueE
 
 submit c = do
   let f False = return never

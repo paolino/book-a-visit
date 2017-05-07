@@ -21,10 +21,6 @@
 {-# language OverloadedLists #-}
 
 
-
-
--- https://youtu.be/btyhpyJTyXg?list=RDG8yEe55gq2c
---
 module UI.Proposal where
 import Data.Dependent.Map (DMap,DSum((:=>)), singleton)
 import qualified Data.Dependent.Map as DMap
@@ -50,28 +46,31 @@ import Data.Maybe
 import Data.Monoid
 import Control.Monad.Trans
 import Data.Either
-
-
+import Text.Read (readMaybe)
+import Text.Printf
 import UI.Constraints
 import UI.ValueInput
+import Instance.Date
+
+import UI.DateInput
 
 
-openWidget  :: (ReadersU u a, MS m)
+validWhat x | length x > 10 = Just x
+            | otherwise = Nothing
+
+openWidget  :: forall a u m . (HasInput (Slot a), ReadersU u a, Enum (Zone u a), Bounded (Zone u a), ShowersU u a,  MS m)
       => Part u a -- who I am
       -> ((Bargain a,Slot a, Zone u a) -> IO (World a))
       -> m (ES (World a))
 openWidget u step = el "ul" $ do
-  bargain :: DS String <- el "li" $ do
-          text "bargain: "
-          fmap unpack <$> view textInput_value <$> textInput def
+  bargain <- el "li" $ valueInput "what" validWhat
 
-  zone <-  el "li" $ valueInput "zone"
-
-  time <-  el "li" $ valueInput "time"
-
-  sub <- submit (liftM2 (&&) (isJust <$> time) (isJust <$> zone))
-
-  return $ pushAlways (\r -> liftIO $ step r) $ ((,,) <$> bargain <*> (fromJust <$> time) <*> (fromJust <$> zone)) `tagPromptlyDyn` sub
+  -- zone <-  el "li" $ valueInput "where" readMaybe
+  zone <- el "li" $ divClass "radiochecks" $ radioChecks [minBound .. maxBound]
+  -- time :: DS (Maybe (Slot a)) <-  el "li" $ valueInput "when" readMaybe
+  time <- el "li" $ getInput
+  sub <- submit (fmap (all id) . sequence $ (isJust <$> time): (isJust <$> zone): [isJust <$> bargain])
+  return $ pushAlways (\r -> liftIO $ step r) $ ((,,) <$> (fromJust <$> bargain) <*> (fromJust <$> time) <*> (fromJust <$> zone)) `tagPromptlyDyn` sub
 
 open (EGiver u) w = openWidget u (\(b,t,z) -> liftIO $ step (NewI (randomIO, FromGiver u (New b t z))) w)
 open (ETaker u) w = openWidget u (\(b,t,z) -> liftIO $ step (NewI (randomIO, FromTaker u (New b t z))) w)

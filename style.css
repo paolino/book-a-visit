@@ -1,32 +1,110 @@
-h3 {
-  font-size:130%;
-  font-weight:normal;
+body{margin:0.1;font-family: 'Enriqueta', arial, serif;line-height: 1.25;}
+.radiochecksText {
+  #display: inline;
+  #position:relative;
+  padding-top:0.5em;
+}
+}
+.section {
+  border-width:0px;
+  border-color:lightsalmon;
+  border-style:solid;
+  border-bottom-width:2px;
   
 }
+.section ul {
+  border-width:0px;
+  border-color: #0e1517;
+  border-style:solid;
+  border-bottom-width:2px;
+  padding-bottom:0.1em;
+  padding-top:0.2em;
+}
+.radiochecks input {display:inline; 
+background-color:white;
+width:1.5em;
+}
+
+.radiochecks ul li {
+  display : inline-flex;
+   margin-right:0.5em;
+}
+
+.radiochecks ul {border-bottom-width:0px}
+
+h3 {
+  font-weight:normal;
+  font-size:150%;
+}
+
+
 div.region {
     background:yellow
     }
   div.button.logger {
     color:red
   }
-  ul {list-style-type: none;}
+  ul {list-style-type: none;padding-left:0.1em;}
   div.small {
     font-size:80%;
     background:lightgrey;
     margin:2em
   }
+.invalidInput input{
+  background:#fbb
+  
+}
+.validInput input{
+  background:#bfb
+  
+}
 input {height:2em;
-  border-radius: 4px;
-  border-color:black;
-  border-width:1px;
-  margin:1px;
-}
+  display: block;
+  width:20em;
+  color:black;
+  border: 1px solid rgba(255,255,255,0.6);
+  #background: linear-gradient(#eee, #fff)transition: 0.2s ease-out;/* box-shadow: 
+        inset 0 1px 4px rgba(0,0,0,0.4); */
+        font-size:100%;
+        padding: 5px;color: #555;border-radius: 4px;}
 button  {
-  background-color:azure;
-  border:2px outset blueviolet;
-  border-radius:4px;
+  #background-color:azure;
+  #border:1px solid blueviolet;
+  border-radius:2px;
   padding:0.5em;
-  font-size:110%;
+  margin:0.1em;
+      background: #c5cea8;
+    border: 1px solid rgba(0,0,0,0.15);
+    border-radius: 4px;
+    transition: all 0.3s ease-out;
+    box-shadow: 
+        inset 0 1px 0 rgba(255,255,255,0.5), 
+        0 2px 2px rgba(0,0,0,0.3), 
+        0 0 4px 1px rgba(0,0,0,0.2); 
+    /* Font styles */
+    text-decoration: none;
+    text-shadow: 0 1px rgba(255,255,255,0.7);
+    font-size:100%;
 }
-.logger button {float:right;}
-.login button {float:right;}
+
+.fakelogin {float:right;
+  #border:3px inset red;
+  padding:2px;
+  #background-color:#ebf3eb;
+  position:fixed;  border-radius:4px;
+  margin:0.1em;
+  top:0;
+  right:0;
+  }
+.summary {display:inline,float:right;}
+.select {display:inline;
+  float:right;}
+  
+
+.select-time {
+  display:inline-grid;
+}
+.select-time li {
+  float:left;
+}
+.picked-date {display:inline;margin-right:1em;}

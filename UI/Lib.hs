@@ -116,3 +116,7 @@ instance GCompare k => IsList (DMap k f) where
   type Item (DMap k f) = DSum k f
   fromList = Data.Dependent.Map.fromList
   toList = Data.Dependent.Map.toList
+
+
+class HasInput a where
+  getInput :: MS m => m (DS (Maybe a))

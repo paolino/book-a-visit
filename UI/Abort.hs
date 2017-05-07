@@ -52,7 +52,7 @@ import Data.Monoid
 import Control.Monad.Trans
 import Data.Either
 import UI.Constraints
-
+import UI.Summary
 data Iconified  = Iconified | Disclosed
 
 
@@ -63,27 +63,29 @@ abortWidget  :: (Read (Place (Opponent u) a), Showers a, SummaryC ('Present u) a
                 -> m (Cable (EitherG Iconified (World a)))
 
 abortWidget t _ Iconified  = do
-  b <- divClass "icon" (button (pack $ show $ summary t))
+
+  b <- divClass "select" (button "Abort")
+  showTransaction t
   return $ wire (LeftG :=> Disclosed <$ b)
 
 
 abortWidget t step Disclosed = do
-  b <- divClass "abort" (button (pack "close"))
   let f Nothing = el "ul" $ do
           divClass "modal" $ text "really want to abort the proposal?"
           el "li" $ do
-            b <- button "yes"
-            return $ wire (RightG :=> True <$ b)
+            b <- (True <$) <$> button "yes"
+            n <- (False <$) <$> button "no"
+            return $ wire (RightG :=> leftmost [b,n])
       f (Just e) = do
         divClass "error" $ text $ pack $ show e
         wire' LeftG <$>  button "got it"
   rec   let
-            w' = step <$ pick RightG zm
+            w' = step <$ ffilter id (pick RightG zm)
             cm = leftmost [Just <$> lefting w',Nothing <$ pick LeftG zm]
         zm <- domMorph f m
         m <- holdDyn Nothing cm
 
-  return $ merge [LeftG :=> Iconified <$ b, RightG :=> righting w']
+  return $ merge [LeftG :=> Iconified <$ ffilter not (pick RightG zm), RightG :=> righting w']
 
 
 righting e = (\(Right x) -> x) <$> ffilter isRight e

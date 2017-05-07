@@ -69,6 +69,31 @@ involved (ETaker u) (EGiver s) = s ^? acceptance . _Just . accepter == Just u
 involved (EGiver u) (EGiver s) = s ^. proposal . proponent == u
 involved (EGiver u) (ETaker s) = s ^? acceptance . _Just . accepter == Just u
 
+waitingInterface  :: (MS m, Showers a)
+                  => Part u a
+                  -> (Idx WaitingT Absent -> Chat a -> Either Except (World a))
+
+                  -> Maybe (Idx WaitingT Absent -> Either Except (World a))
+                  -> [(Idx WaitingT Absent, Transaction WaitingT Absent a)]
+                  -> m (ES (World a))
+waitingInterface u fchat fdrop  xs = el "ul" $ fmap leftmost . forM xs $ \(i,x) -> el "li" $ do
+  showTransaction x
+  return never
+
+waitingDriver :: (SlotMatch a,Showers a, MS m, Eq (Part 'Giver a), Eq (Part 'Taker a)) => Roled Part a -> World a -> m (ES (World a))
+waitingDriver u w =  case M.assocs . M.filter (involved u . summary) $ w ^. waiting of
+                       [] -> return never
+                       xs -> do
+                          el "h3" $ text "Your appointments"
+                          case u of
+                               ETaker u -> waitingInterface u
+                                              (\i c -> step (OtherI (FromTaker u (ChatWaiting $ Chatting i c))) w) -- message
+                                              Nothing xs
+
+                               EGiver u -> waitingInterface u
+                                              (\i c -> step (OtherI (FromGiver u (ChatWaiting $  Chatting i c)) )w ) -- message
+                                              (Just (\i -> step (OtherI (FromGiver u (StartDrop i)) )w)) -- message
+                                              xs
 
 
 abortDriver :: (Showers a,Readers a, SlotMatch a, Eq (Part Taker a), Eq (Part Giver a), MS m) => Roled Part a -> World a -> m (ES (World a))
@@ -99,7 +124,7 @@ acceptanceDriver u w = divClass "accept" $ case u of
                               prenote u (\i p  -> step (OtherI (FromGiver u (Appointment i p))) w) xs
 
 proposalDriver u w = divClass "propose" $ do
-              el "h3" $ text "Your new proposal"
+              el "h3" $ text "New proposal"
               open u w
 
 finals :: (Showers a,Readers a, SlotMatch a, Eq (Part Taker a), Eq (Part Giver a), MS m) => Roled Part a ->  World a -> m ()
@@ -116,18 +141,20 @@ displayWorld w = do
   el "h3" $ text "Your world view"
   divClass "small" $ dynText $ pack <$> show <$> w
 
-main = mainWidgetWithCss (fromString css) $ do
-
+-- main = mainWidgetWithCss (fromString css) $ do
+main = mainWidget $ do
+    -- elAttr "link" [("href","style.css"),("type","text/css"),("rel","stylesheet")] $ return ()
     u <- fakeLogin
 
     let f (Nothing,w) = divClass "nologin" (text "no authentication, no authorization") >> return never
         f (Just u,w) = divClass "logged" $ do
-          wo <- proposalDriver u w
-          wp <- acceptanceDriver u w
-          wa <- abortDriver u w
-          finals u w
+          wo <- divClass "section" $ proposalDriver u w
+          wp <- divClass "section" $ acceptanceDriver u w
+          wa <- divClass "section" $ abortDriver u w
+          ww <- divClass "section" $ waitingDriver u w
+          divClass "section" $ finals u w
 
-          return $ leftmost [wo,wp,wa]
+          return $ leftmost [wo,wp,wa,ww]
 
     rec   w :: DS (World S) <- holdDyn mempty dw
           dw <- domMorph f $ (,) <$> u <*> w

@@ -16,7 +16,7 @@ type Showers a = (Show (Zone 'Giver a), Show (Zone Taker a),Show (Part Giver a) 
 
 type ShowersU u a = (Show (Zone u a),  Show (Part u a), Show (Place u a), Show (Place (Opponent u) a), Show (Part (Opponent u) a))
 
-type Readers a = (Read (Zone Giver a), Read (Zone Taker a), Read (Slot a),Bargain a ~ String,Read (Place 'Giver a),Read (Place Taker a))
-type ReadersU u a = (Read (Zone u a), Read (Slot a),Bargain a ~ String,Read (Place u a))
+type Readers a = (Read (Zone Giver a), Read (Zone Taker a),Bargain a ~ String,Read (Place 'Giver a),Read (Place Taker a))
+type ReadersU u a = (Read (Zone u a),Bargain a ~ String,Read (Place u a))
 
 type Defaults a = (Default (Zone Giver a), Default (Zone Taker a), Default (Slot a),Bargain a ~ String,Default (Place 'Giver a),Default (Place Taker a))

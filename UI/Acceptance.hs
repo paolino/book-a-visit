@@ -50,7 +50,7 @@ import Data.Maybe
 import Data.Monoid
 import Control.Monad.Trans
 import Data.Either
-
+import Text.Read (readMaybe)
 import UI.Constraints
 import UI.Summary
 import UI.ValueInput
@@ -58,24 +58,27 @@ import UI.ValueInput
 data Iconified  = Iconified | Disclosed
 
 
-acceptanceWidget  :: (Read (Place (Opponent u) a), Showers a, SummaryC ('Present u) a, MS m)
+class Valid a b where
+  valid :: a -> b -> Bool
+
+acceptanceWidget  :: (Valid (Zone u a) (Place (Opponent u ) a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
+                      Bounded (Place u a), Enum (Place u a),Read (Place (Opponent u) a), Showers a, ShowersU u a, SummaryC ('Present u) a, MS m)
                 => Transaction ProposalT (Present u) a
                 -> (Place (Opponent u) a -> Either Except (World a))
                 -> Iconified
                 -> m (Cable (EitherG Iconified (World a)))
 
 acceptanceWidget t _ Iconified  = do
-  el "span" $ case summary t of
-                ETaker s -> showSummary s
-                EGiver s -> showSummary s
-  b <- el "span" (button "accept")
+  b <- divClass "select" (button "accept")
+  showTransaction t
   return $ wire (LeftG :=> Disclosed <$ b)
 
 
-acceptanceWidget t step Disclosed = do
+acceptanceWidget t@(Proposal d) step Disclosed = do
   b <- divClass "abort" (button (pack "close"))
   let f Nothing = el "ul" $ do
-          place <- el "li" $ valueInput "place"
+
+          place <- el "li" $ divClass "radiochecks" $ radioChecks $ filter (valid $ d ^. zone) [minBound .. maxBound]
           b <- submit (isJust <$> place)
           return $ Just <$> ((fromJust <$> place) `tagPromptlyDyn` b)
       f (Just e) = do
@@ -93,7 +96,8 @@ acceptanceWidget t step Disclosed = do
 righting e = (\(Right x) -> x) <$> ffilter isRight e
 lefting e = (\(Left x) -> x) <$> ffilter isLeft e
 
-prenote :: (Showers a, Read (Place u a), Reflexive u, SummaryC ('Present (Opponent u)) a, MS m)
+prenote :: (Valid (Zone (Opponent u) a) (Place u a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
+                      Bounded (Place u a), Enum (Place u a),Show (Zone (Opponent u) a), ShowersU u a, Showers a, Read (Place u a), Reflexive u, SummaryC ('Present (Opponent u)) a, MS m)
         => Part u a
         -> (Idx ProposalT (Present (Opponent u)) -> Place u a -> Either Except (World a))
         -> [(Idx ProposalT (Present (Opponent u)), Transaction ProposalT (Present (Opponent u)) a)]

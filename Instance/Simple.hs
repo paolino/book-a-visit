@@ -42,24 +42,43 @@ import Data.Either
 import UI.Acceptance
 import UI.Proposal
 
+import Instance.Date
+
+instance Valid (Zone Giver S) (Place Taker S) where
+  valid Anywhere _ = True
+  valid Here AtYourWorkshop = True
+  valid There AtMyHome = True
+  valid _ _ = False
+
+instance Valid (Zone Taker S) (Place Giver S) where
+  valid Anywhere _ = True
+  valid Here AtYourHome = True
+  valid There AtMyWorkshop = True
+  valid _ _ = False
+
 data S
+data Possess = My | Your
 
 ---------- example -------------------------------
 type instance Bargain S = String
-data instance Part Taker S = Client {fromClient :: String} deriving (Show,Eq)
-data instance Part Giver S = Business {fromBusiness :: String} deriving (Show,Eq)
+data instance Part Taker S = Client String deriving (Show,Eq)
+data instance Part Giver S = Business String deriving (Show,Eq)
 type instance Chat S = String
-data instance Zone u S = At (Float,Float) | Around (Float,Float,Float) | AtAround (Float,Float,Float) deriving (Show,Read)
-data instance Place u S = Place (Float,Float) deriving (Read, Show)
-type instance Slot S = (Float,Float)
+data instance Zone u S = Here | There | Anywhere deriving (Read, Show, Bounded,Enum)
+data instance Place Taker S = AtMyHome | AtYourWorkshop deriving (Read, Show, Bounded,Enum)
+data instance Place Giver S = AtMyWorkshop | AtYourHome deriving (Read, Show, Bounded, Enum)
+type instance Slot S = Date
 -- type instance Time S = (Float)
 type instance Failure S = String
 type instance Feedback S = String
 
+fromBusiness (Business s) = s
+fromClient (Client s) = s
+
 instance SlotMatch S where
-  data Time S = T Float
-  matchLow (t0 , t1) (T t) = t >= t0
-  matchHigh (t0 , t1) (T t) = t >= t1
+  data Time S = T Day ATime
+  -- matchLow ((t0 , t1) (T t) = t >= t0
+  -- matchHigh (t0 , t1) (T t) = t >= t1
 
 
 

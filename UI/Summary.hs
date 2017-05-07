@@ -86,5 +86,8 @@ showSummary (Summary p ma cs mo) = divClass "summary" $ el "ul" $ do
     Nothing -> return ()
     Just r -> el "li" $ text $ pack $ show $ r
 
-
+showTransaction :: (MS m, Showers a, SummaryC u a) => Transaction s u a -> m ()
+showTransaction t = case summary t of
+                ETaker s -> showSummary s
+                EGiver s -> showSummary s
 
