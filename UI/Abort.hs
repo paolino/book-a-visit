@@ -64,7 +64,7 @@ abortWidget  :: (Read (Place (Opponent u) a), Showers a, SummaryC ('Present u) a
 
 abortWidget t _ Iconified  = do
 
-  b <- divClass "select" (button "Abort")
+  b <- divClass "select" $ icon ["close","3x"] "forget"
   showTransaction t
   return $ wire (LeftG :=> Disclosed <$ b)
 
@@ -73,12 +73,12 @@ abortWidget t step Disclosed = do
   let f Nothing = el "ul" $ do
           divClass "modal" $ text "really want to abort the proposal?"
           el "li" $ do
-            b <- (True <$) <$> button "yes"
-            n <- (False <$) <$> button "no"
+            b <- (True <$) <$> icon ["check","3x"] "yes"
+            n <- (False <$) <$> icon ["close","3x"] "no"
             return $ wire (RightG :=> leftmost [b,n])
       f (Just e) = do
         divClass "error" $ text $ pack $ show e
-        wire' LeftG <$>  button "got it"
+        wire' LeftG <$>  icon ["check","3x"] "got it"
   rec   let
             w' = step <$ ffilter id (pick RightG zm)
             cm = leftmost [Just <$> lefting w',Nothing <$ pick LeftG zm]

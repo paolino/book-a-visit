@@ -81,8 +81,8 @@ picked (Picked x) = Just x
 picked _ = Nothing
 
 pickDate' :: MS m => (Bool,Stage) -> m (ES Stage)
-pickDate' (False, Closed) = (Daying <$) <$> button "pick a date"
-pickDate' (True, Closed) = (Daying <$) <$> button "change the date"
+pickDate' (False, Closed) = (Daying <$) <$> icon ["calendar","3x"] "pick a date"
+pickDate' (True, Closed) = (Daying <$) <$> icon ["calendar-times-o","3x"] "change the date"
 pickDate' (_,Daying) = do
   let f Back = Closed
       f (Selected x) = Delting x

@@ -19,6 +19,7 @@
 {-# language TypeInType #-}
 {-# language ViewPatterns #-}
 {-# language OverloadedLists #-}
+{-# language NoMonomorphismRestriction #-}
 
 
 module UI.Proposal where
@@ -54,23 +55,36 @@ import Instance.Date
 
 import UI.DateInput
 
-
+camera = elAttr "i" [("class","fa fa-camera-retro")] $ text "fa-camera-retro"
 validWhat x | length x > 10 = Just x
             | otherwise = Nothing
 
 openWidget  :: forall a u m . (HasInput (Slot a), ReadersU u a, Enum (Zone u a), Bounded (Zone u a), ShowersU u a,  MS m)
       => Part u a -- who I am
       -> ((Bargain a,Slot a, Zone u a) -> IO (World a))
-      -> m (ES (World a))
+      -> m (Cable (EitherG () (World a)))
 openWidget u step = el "ul" $ do
-  bargain <- el "li" $ valueInput "what" validWhat
+  bargain <- el "li" $ do
+    elAttr "span" [("class","field")] $ text "what"
+    valueInput "10 chars, minimum" validWhat
 
   -- zone <-  el "li" $ valueInput "where" readMaybe
-  zone <- el "li" $ divClass "radiochecks" $ radioChecks [minBound .. maxBound]
+  zone <- el "li" $ do
+      elAttr "span" [("class","field")] $ text "where"
+      divClass "radiochecks" $ radioChecks [minBound .. maxBound]
   -- time :: DS (Maybe (Slot a)) <-  el "li" $ valueInput "when" readMaybe
-  time <- el "li" $ getInput
-  sub <- submit (fmap (all id) . sequence $ (isJust <$> time): (isJust <$> zone): [isJust <$> bargain])
-  return $ pushAlways (\r -> liftIO $ step r) $ ((,,) <$> (fromJust <$> bargain) <*> (fromJust <$> time) <*> (fromJust <$> zone)) `tagPromptlyDyn` sub
+  time <- el "li" $ do
+    elAttr "span" [("class","field")] $ text "when"
+    getInput
+  -- camera
+  (sub,close) <- el "li" $ do
+    sub <- submit (fmap (all id) . sequence $ (isJust <$> time): (isJust <$> zone): [isJust <$> bargain])
+    close <- icon ["close","3x"] "abandon"
+    return (sub,close)
+  return $ merge [
+    RightG :=> (pushAlways (\r -> liftIO $ step r) $ ((,,) <$> (fromJust <$> bargain) <*> (fromJust <$> time) <*> (fromJust <$> zone)) `tagPromptlyDyn` sub),
+    LeftG :=> close
+    ]
 
 open (EGiver u) w = openWidget u (\(b,t,z) -> liftIO $ step (NewI (randomIO, FromGiver u (New b t z))) w)
 open (ETaker u) w = openWidget u (\(b,t,z) -> liftIO $ step (NewI (randomIO, FromTaker u (New b t z))) w)

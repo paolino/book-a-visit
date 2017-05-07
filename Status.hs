@@ -132,6 +132,14 @@ data Transaction s (u :: Presence Role) a where
 
   Failure :: Transaction ServingT Absent a -> Failure a -> Transaction FinalT Absent a
 
+  ExpiredProposal :: PresenceRoled (Transaction ProposalT) a -> Transaction FinalT Absent a
+
+  ExpiredDropping :: Transaction DroppingT Absent a  -> Transaction FinalT Absent a
+
+  ExpiredReleasing :: Transaction ReleasingT Absent a  -> Transaction FinalT Absent a
+
+
+
 deriving instance (UnPresent u a) => Show (Transaction s u a)
 
 
@@ -191,7 +199,9 @@ instance  SummaryC Absent a where
   summary (Releasing p) = summary p
   summary (ChattingReleasing p x) =  over chat (x:) `onBoth` summary p where
   summary (Successed p x) = set feedback (Just $ Right x) `onBoth` summary p
-
+  summary (ExpiredProposal x) = summary `throughP` x
+  summary (ExpiredReleasing x) = summary x
+  summary (ExpiredDropping x) = summary x
 
     {-
 

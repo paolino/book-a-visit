@@ -53,27 +53,40 @@ import Instance.Simple
 users = map (ETaker . Client) ["Paolo Veronelli","Patrizio Iezzi", "Mario Rossi"]
 vets = map (EGiver . Business) ["Dottor Volatile", "Piero dei Pesci", "Marta dal Gatto"]
 
-data Select a = Selected a | Selecting
 
-fakeLogin :: MS m => m (DS (Maybe (Roled Part S)))
+showpart (ETaker (Client p)) = do
+  (e, _) <- elAttr' "div" (M.singleton "class" "login-button") $  do
+    elAttr "span" [("class","role")] $ text "client"
+    elAttr "span" [("class","name")] $ text $ pack p
+
+  return $ domEvent Click e
+
+showpart (EGiver (Business p)) = do
+  (e, _) <- elAttr' "div" (M.singleton "class" "login-button")  $ do
+    elAttr "span" [("class","role")] $ text "business"
+    elAttr "span" [("class","name")] $ text $ pack p
+  return $ domEvent Click e
+
+data Select a = Selected a | Selecting | LoggedOut
+
+fakeLogin :: forall m . MS m => m (DS (Maybe (Roled Part S)))
 fakeLogin = divClass "fakelogin" $ do
-  let f (Selected u) = (Selecting <$) <$> do
-                        divClass "logger" $ button (pack $  maybe "login" show $ bimap  fromBusiness fromClient <$> u)
-      f Selecting = (fmap Selected . leftmost) <$> do
-        xs <- forM (users ++ vets) $ \u -> divClass "login" $
-            (Just u <$) <$> button (pack $ show $ bimap  fromBusiness fromClient u)
+  let f :: Select (Roled Part S) -> m (ES (Select (Roled Part S)))
+      f LoggedOut = (Selecting <$) <$> divClass "login" (icon ["user","3x"] "login")
+      f (Selected u) = (LoggedOut <$) <$> divClass "logout" (icon ["user","3x"] "logout")
+      f Selecting = (Selected <$>) <$>  leftmost <$> forM (users ++ vets)
+        (\u -> divClass "login" $ (u <$) <$> showpart u)
 
-        x <- (Nothing <$) <$>  divClass "logger" (button "logout")
 
-        return $ x:xs
 
-  rec change <-domMorph f login
-      login <- holdDyn (Selected Nothing) change
+  rec change :: ES (Select (Roled Part S)) <- domMorph f login
+      login <- holdDyn LoggedOut change
 
-  let selected (Selected x) = Just x
+  let selected (Selected x) = Just (Just x)
+      selected LoggedOut = Just Nothing
       selected _ = Nothing
 
-  r <- holdDyn Nothing $ fmapMaybe selected change
+  r <- holdDyn Nothing $  fmapMaybe selected change
   return $ r
 
 ----------------------------------------------------------------

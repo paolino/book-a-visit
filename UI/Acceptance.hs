@@ -69,7 +69,7 @@ acceptanceWidget  :: (Valid (Zone u a) (Place (Opponent u ) a), Bounded (Place (
                 -> m (Cable (EitherG Iconified (World a)))
 
 acceptanceWidget t _ Iconified  = do
-  b <- divClass "select" (button "accept")
+  b <- divClass "select" (icon ["check","3x"] "accept")
   showTransaction t
   return $ wire (LeftG :=> Disclosed <$ b)
 

@@ -81,7 +81,7 @@ valueInput placeholder reads = do
 
 submit c = do
   let f False = return never
-      f True =  button "submit"
+      f True =  icon ["check","3x"] "submit"
   domMorph f c
 
 

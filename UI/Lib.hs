@@ -2,6 +2,8 @@
 
 {-# LANGUAGE GADTs, ScopedTypeVariables, DataKinds, FlexibleContexts, Rank2Types, ConstraintKinds, TypeFamilies, MultiParamTypeClasses, FlexibleInstances, NoMonomorphismRestriction, RecursiveDo, InstanceSigs, OverloadedStrings #-}
 
+{-# language OverloadedStrings #-}
+{-# language OverloadedLists #-}
 module UI.Lib where
 
 import Prelude hiding ((.),id, lookup)
@@ -120,3 +122,8 @@ instance GCompare k => IsList (DMap k f) where
 
 class HasInput a where
   getInput :: MS m => m (DS (Maybe a))
+
+icon :: MS m => [Text] -> Text -> m (ES ())
+icon xs t = do  (r,_) <- elAttr' "i" [("class",foldl (\y x -> y <> " fa-" <> x ) "fa" xs)] $ return ()
+                divClass "hints" $ text t
+                return $ domEvent Click r
