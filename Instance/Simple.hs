@@ -41,8 +41,11 @@ import Control.Monad.Trans
 import Data.Either
 import UI.Acceptance
 import UI.Proposal
-
+import UI.Constraints
+import UI.Lib
 import Instance.Date
+import Reflex.Dom
+import Control.Monad.Reader
 
 instance Valid (Zone Giver S) (Place Taker S) where
   valid Anywhere _ = True
@@ -81,7 +84,44 @@ instance SlotMatch S where
   -- matchHigh (t0 , t1) (T t) = t >= t1
 
 
+instance ShowPart S where
+  showPart (ETaker (Client p)) = do
+      elAttr "span" [("class","role")] $ text "client"
+      elAttr "span" [("class","name")] $ text $ pack p
 
+  showPart (EGiver (Business p)) = do
+      elAttr "span" [("class","role")] $ text "business"
+      elAttr "span" [("class","name")] $ text $ pack p
+
+  showChat (ETaker (RChat p)) = do
+      elAttr "span" [("class","role")] $ text "client"
+      elAttr "span" [("class","name")] $ text $ pack p
+
+  showChat (EGiver (RChat p)) = do
+      elAttr "span" [("class","role")] $ text "business"
+      elAttr "span" [("class","name")] $ text $ pack p
+
+ihome, iworkshop ::( MonadReader (DS Bool) m, MS m) => m (ES ())
+ihome = icon ["home","3x"] "home"
+iworkshop = icon ["building-o","3x"] "office"
+
+instance (MonadReader (DS Bool) m,MS m) => HasIcons m (Zone Taker S) where
+  getIcon Here = (Here <$) <$> ihome
+  getIcon There = (There <$) <$> iworkshop
+  getIcon Anywhere = (Anywhere <$) <$> composeIcon (getIcon (Here :: Zone Taker S)) (getIcon There)
+
+instance (MonadReader (DS Bool) m,MS m) => HasIcons m (Zone Giver S) where
+  getIcon Here = (Here <$) <$>  iworkshop
+  getIcon There = (There <$) <$> ihome
+  getIcon Anywhere = (Anywhere <$) <$> composeIcon (getIcon (Here :: Zone Taker S)) (getIcon There)
+
+instance (MonadReader (DS Bool) m,MS m) => HasIcons  m (Place Taker S) where
+  getIcon AtMyHome = (AtMyHome <$) <$> ihome
+  getIcon AtYourWorkshop = (AtYourWorkshop <$) <$> iworkshop
+
+instance  (MonadReader (DS Bool) m,MS m) => HasIcons m (Place Giver S) where
+  getIcon AtYourHome = (AtYourHome <$) <$> ihome
+  getIcon AtMyWorkshop = (AtMyWorkshop <$) <$> iworkshop
 deriving instance Show (World S)
 
 

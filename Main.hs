@@ -56,7 +56,8 @@ import UI.FakeLogin
 import UI.Constraints
 import UI.Summary
 import Instance.Simple
-
+import UI.ValueInput
+import Control.Monad.Reader
 
 css = [hereFile|style.css|]
 
@@ -69,7 +70,7 @@ involved (ETaker u) (EGiver s) = s ^? acceptance . _Just . accepter == Just u
 involved (EGiver u) (EGiver s) = s ^. proposal . proponent == u
 involved (EGiver u) (ETaker s) = s ^? acceptance . _Just . accepter == Just u
 
-waitingInterface  :: (MS m, Showers a)
+waitingInterface  :: (MonadReader (DS Bool) m, MS m, Showers a, Chat a ~ String)
                   => Part u a
                   -> (Idx WaitingT Absent -> Chat a -> Either Except (World a))
 
@@ -78,9 +79,12 @@ waitingInterface  :: (MS m, Showers a)
                   -> m (ES (World a))
 waitingInterface u fchat fdrop  xs = el "ul" $ fmap leftmost . forM xs $ \(i,x) -> el "li" $ do
   showTransaction x
-  return never
+  (t :: DS (Maybe String)) <- divClass "chat" $ valueInput "chat" Just
+  e <- fmap (fchat i) <$> fmapMaybe id <$> tagPromptlyDyn t <$> (submit $ constDyn True)
 
-waitingDriver :: (SlotMatch a,Showers a, MS m, Eq (Part 'Giver a), Eq (Part 'Taker a)) => Roled Part a -> World a -> m (ES (World a))
+  return $ righting e
+
+waitingDriver :: (MonadReader (DS Bool) m, Chat a ~ String, SlotMatch a,Showers a, MS m, Eq (Part 'Giver a), Eq (Part 'Taker a)) => Roled Part a -> World a -> m (ES (World a))
 waitingDriver u w =  case M.assocs . M.filter (involved u . summary) $ w ^. waiting of
                        [] -> return never
                        xs -> do
@@ -96,7 +100,7 @@ waitingDriver u w =  case M.assocs . M.filter (involved u . summary) $ w ^. wait
                                               xs
 
 
-abortDriver :: (Showers a,Readers a, SlotMatch a, Eq (Part Taker a), Eq (Part Giver a), MS m) => Roled Part a -> World a -> m (ES (World a))
+abortDriver :: (MonadReader (DS Bool) m, Showers a,Readers a, SlotMatch a, Eq (Part Taker a), Eq (Part Giver a), MS m) => Roled Part a -> World a -> m (ES (World a))
 abortDriver u w = divClass "abort" $ case u of
       ETaker u -> case M.assocs . M.filter (checkProponent u) $ w ^. proposalTaker of
                           [] -> return never
@@ -153,20 +157,23 @@ displayWorld w = do
 -- main = mainWidgetWithCss (fromString css) $ do
 main = mainWidget $ do
     -- elAttr "link" [("href","style.css"),("type","text/css"),("rel","stylesheet")] $ return ()
-    u <- fakeLogin
+    rec t <- divClass "info" $ runReaderT (icon ["question","2x"] "info") d
+        d <- foldDyn (const not) False t
+    flip runReaderT d $ do
+      u <- fakeLogin
 
-    let f (Nothing,w) = divClass "nologin" (divClass "splash" $ text "Book a Visit") >> return never
-        f (Just u,w) = divClass "logged" $ do
-          wo <- divClass "section" $ proposalDriver u w
-          wp <- divClass "section" $ acceptanceDriver u w
-          wa <- divClass "section" $ abortDriver u w
-          ww <- divClass "section" $ waitingDriver u w
-          divClass "section" $ finals u w
+      let f (Nothing,w) = divClass "nologin" (divClass "splash" $ text "Book a Visit") >> return never
+          f (Just u,w) = divClass "logged" $ do
+            wo <- divClass "section" $ proposalDriver u w
+            wp <- divClass "section" $ acceptanceDriver u w
+            wa <- divClass "section" $ abortDriver u w
+            ww <- divClass "section" $ waitingDriver u w
+            divClass "section" $ finals u w
 
-          return $ leftmost [wo,wp,wa,ww]
+            return $ leftmost [wo,wp,wa,ww]
 
-    rec   w :: DS (World S) <- holdDyn mempty dw
-          dw <- domMorph f $ (,) <$> u <*> w
+      rec   w :: DS (World S) <- holdDyn mempty dw
+            dw <- domMorph f $ (,) <$> u <*> w
 
 
 {-
@@ -179,5 +186,5 @@ main = mainWidget $ do
     rec s <- domMorph sw r
         r <- holdDyn False s
 -}
-    return ()
+      return ()
 

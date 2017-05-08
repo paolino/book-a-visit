@@ -52,31 +52,33 @@ import Text.Printf
 import UI.Constraints
 import UI.ValueInput
 import Instance.Date
-
+import Control.Monad.Reader
 import UI.DateInput
+import qualified GHCJS.DOM.HTMLInputElement as J
+import qualified GHCJS.DOM.Element as J
+
 
 camera = elAttr "i" [("class","fa fa-camera-retro")] $ text "fa-camera-retro"
 validWhat x | length x > 10 = Just x
             | otherwise = Nothing
 
-openWidget  :: forall a u m . (HasInput (Slot a), ReadersU u a, Enum (Zone u a), Bounded (Zone u a), ShowersU u a,  MS m)
+openWidget  :: forall a u m . (MonadReader (DS Bool) m, HasIcons m (Zone u a), HasInput m (Slot a), ReadersU u a, Enum (Zone u a), Bounded (Zone u a), ShowersU u a,  MS m)
       => Part u a -- who I am
       -> ((Bargain a,Slot a, Zone u a) -> IO (World a))
       -> m (Cable (EitherG () (World a)))
 openWidget u step = el "ul" $ do
-  bargain <- el "li" $ do
-    elAttr "span" [("class","field")] $ text "what"
-    valueInput "10 chars, minimum" validWhat
-
   -- zone <-  el "li" $ valueInput "where" readMaybe
   zone <- el "li" $ do
       elAttr "span" [("class","field")] $ text "where"
-      divClass "radiochecks" $ radioChecks [minBound .. maxBound]
+      divClass "radiochecks" $ radioChecks $ [minBound .. maxBound]
   -- time :: DS (Maybe (Slot a)) <-  el "li" $ valueInput "when" readMaybe
   time <- el "li" $ do
     elAttr "span" [("class","field")] $ text "when"
     getInput
   -- camera
+  bargain <- el "li" $ do
+    elAttr "span" [("class","field")] $ text "what"
+    valueInput "10 chars, minimum" validWhat
   (sub,close) <- el "li" $ do
     sub <- submit (fmap (all id) . sequence $ (isJust <$> time): (isJust <$> zone): [isJust <$> bargain])
     close <- icon ["close","3x"] "abandon"

@@ -36,8 +36,8 @@ import Control.Monad.Identity (Identity)
 import qualified GHCJS.DOM.EventM as J
 import Data.IORef
 import Control.Monad.Trans
-
-
+import Data.Either
+import Control.Monad.Reader
 
 -------  reflex missings --------------
 type Morph t m a = Dynamic t (m a) -> m (Event t a)
@@ -120,10 +120,24 @@ instance GCompare k => IsList (DMap k f) where
   toList = Data.Dependent.Map.toList
 
 
-class HasInput a where
-  getInput :: MS m => m (DS (Maybe a))
+class HasInput m a where
+  getInput :: m (DS (Maybe a))
 
-icon :: MS m => [Text] -> Text -> m (ES ())
-icon xs t = do  (r,_) <- elAttr' "i" [("class",foldl (\y x -> y <> " fa-" <> x ) "fa" xs)] $ return ()
-                divClass "hints" $ text t
+class HasIcons m a where
+  getIcon :: a -> m (ES a)
+
+icon :: (MS m, MonadReader (DS Bool) m) => [Text] -> Text -> m (ES ())
+icon xs t = do  (r,_) <- divClass "icon-box" . elAttr' "i" [("class",foldl (\y x -> y <> " fa-" <> x ) "fa" xs)] $ return ()
+                ask >>= domMorph (\q -> if q then divClass "hints" (text t) >> return never else return never )
                 return $ domEvent Click r
+
+composeIcon :: (MonadReader (DS Bool) m, MS m) => m (ES a) -> m (ES a)  -> m (ES a)
+composeIcon x y = fmap leftmost . divClass "compose" . sequence $ [
+  divClass "compose-x" x,
+  divClass "compose-plus" (icon ["plus","2x"] "or") >> return never,
+  divClass "compose-y" y
+  ]
+
+righting e = (\(Right x) -> x) <$> ffilter isRight e
+lefting e = (\(Left x) -> x) <$> ffilter isLeft e
+

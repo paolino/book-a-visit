@@ -54,6 +54,7 @@ import Text.Read (readMaybe)
 import UI.Constraints
 import UI.Summary
 import UI.ValueInput
+import Control.Monad.Reader
 
 data Iconified  = Iconified | Disclosed
 
@@ -61,7 +62,7 @@ data Iconified  = Iconified | Disclosed
 class Valid a b where
   valid :: a -> b -> Bool
 
-acceptanceWidget  :: (Valid (Zone u a) (Place (Opponent u ) a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
+acceptanceWidget  :: (MonadReader (DS Bool) m, HasIcons m (Place u a), HasIcons m (Place (Opponent u) a), Valid (Zone u a) (Place (Opponent u ) a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
                       Bounded (Place u a), Enum (Place u a),Read (Place (Opponent u) a), Showers a, ShowersU u a, SummaryC ('Present u) a, MS m)
                 => Transaction ProposalT (Present u) a
                 -> (Place (Opponent u) a -> Either Except (World a))
@@ -69,7 +70,7 @@ acceptanceWidget  :: (Valid (Zone u a) (Place (Opponent u ) a), Bounded (Place (
                 -> m (Cable (EitherG Iconified (World a)))
 
 acceptanceWidget t _ Iconified  = do
-  b <- divClass "select" (icon ["check","3x"] "accept")
+  b <- divClass "select" (icon ["handshake-o","3x"] "accept")
   showTransaction t
   return $ wire (LeftG :=> Disclosed <$ b)
 
@@ -93,10 +94,8 @@ acceptanceWidget t@(Proposal d) step Disclosed = do
   return $ merge [LeftG :=> Iconified <$ b, RightG :=> righting w']
 
 
-righting e = (\(Right x) -> x) <$> ffilter isRight e
-lefting e = (\(Left x) -> x) <$> ffilter isLeft e
 
-prenote :: (Valid (Zone (Opponent u) a) (Place u a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
+prenote :: (MonadReader (DS Bool) m, HasIcons m (Place u a),HasIcons m (Place (Opponent u) a),  Valid (Zone (Opponent u) a) (Place u a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
                       Bounded (Place u a), Enum (Place u a),Show (Zone (Opponent u) a), ShowersU u a, Showers a, Read (Place u a), Reflexive u, SummaryC ('Present (Opponent u)) a, MS m)
         => Part u a
         -> (Idx ProposalT (Present (Opponent u)) -> Place u a -> Either Except (World a))

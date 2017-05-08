@@ -53,10 +53,14 @@ import Control.Monad.Trans
 import Data.Either
 import UI.Constraints
 import UI.Summary
+import Control.Monad.Reader
+
+
+
 data Iconified  = Iconified | Disclosed
 
 
-abortWidget  :: (Read (Place (Opponent u) a), Showers a, SummaryC ('Present u) a, MS m)
+abortWidget  :: (MonadReader (DS Bool) m, Read (Place (Opponent u) a), Showers a, SummaryC ('Present u) a, MS m)
                 => Transaction ProposalT (Present u) a
                 -> Either Except (World a)
                 -> Iconified
@@ -88,10 +92,8 @@ abortWidget t step Disclosed = do
   return $ merge [LeftG :=> Iconified <$ ffilter not (pick RightG zm), RightG :=> righting w']
 
 
-righting e = (\(Right x) -> x) <$> ffilter isRight e
-lefting e = (\(Left x) -> x) <$> ffilter isLeft e
 
-abort :: (Showers a, Read (Place u a),  Reflexive u, SummaryC ('Present (Opponent u)) a, MS m)
+abort :: (MonadReader (DS Bool) m, Showers a, Read (Place u a),  Reflexive u, SummaryC ('Present (Opponent u)) a, MS m)
       => (Idx ProposalT (Present (Opponent u)) -> Either Except (World a))
         -> [(Idx ProposalT (Present (Opponent u)), Transaction ProposalT (Present (Opponent u)) a)]
         -> m (ES (World a))

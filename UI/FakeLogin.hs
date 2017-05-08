@@ -48,34 +48,29 @@ import Control.Monad.Trans
 import Data.Either
 
 import Instance.Simple
+import UI.Lib
+import UI.Constraints
+import Control.Monad.Reader
 ----------------------- fake login --------------------------------------
 
 users = map (ETaker . Client) ["Paolo Veronelli","Patrizio Iezzi", "Mario Rossi"]
 vets = map (EGiver . Business) ["Dottor Volatile", "Piero dei Pesci", "Marta dal Gatto"]
 
-
-showpart (ETaker (Client p)) = do
-  (e, _) <- elAttr' "div" (M.singleton "class" "login-button") $  do
-    elAttr "span" [("class","role")] $ text "client"
-    elAttr "span" [("class","name")] $ text $ pack p
-
-  return $ domEvent Click e
-
-showpart (EGiver (Business p)) = do
-  (e, _) <- elAttr' "div" (M.singleton "class" "login-button")  $ do
-    elAttr "span" [("class","role")] $ text "business"
-    elAttr "span" [("class","name")] $ text $ pack p
+buttonPart p = do
+  (e, _) <- elAttr' "div" (M.singleton "class" "login-button")  $ showPart p
   return $ domEvent Click e
 
 data Select a = Selected a | Selecting | LoggedOut
 
-fakeLogin :: forall m . MS m => m (DS (Maybe (Roled Part S)))
+fakeLogin :: forall m . (MonadReader (DS Bool) m, MS m) => m (DS (Maybe (Roled Part S)))
 fakeLogin = divClass "fakelogin" $ do
   let f :: Select (Roled Part S) -> m (ES (Select (Roled Part S)))
       f LoggedOut = (Selecting <$) <$> divClass "login" (icon ["user","3x"] "login")
-      f (Selected u) = (LoggedOut <$) <$> divClass "logout" (icon ["user","3x"] "logout")
+      f (Selected u) = do
+        divClass "logged" $ showPart u
+        (Selecting <$) <$> divClass "logout" (icon ["user","3x"] "logout")
       f Selecting = (Selected <$>) <$>  leftmost <$> forM (users ++ vets)
-        (\u -> divClass "login" $ (u <$) <$> showpart u)
+        (\u -> divClass "login" $ (u <$) <$> buttonPart u)
 
 
 

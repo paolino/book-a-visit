@@ -5,8 +5,10 @@ import Text.Printf
 
 
 data Day = Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday deriving (Show,Bounded,Enum)
+
 data Delta = Delta ATime ATime
 data ATime = ATime Float
+
 instance Show ATime where
   show (ATime x) = let
     h :: Int = floor x

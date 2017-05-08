@@ -20,7 +20,7 @@
 {-# language ViewPatterns #-}
 {-# language OverloadedLists #-}
 
-
+{-# LANGUAGE CPP #-}
 
 
 -- https://youtu.be/btyhpyJTyXg?list=RDG8yEe55gq2c
@@ -52,25 +52,41 @@ import Control.Monad.Trans
 import Data.Either
 import Data.List
 import Control.Monad
+import Control.Monad.Reader
 
 import UI.Constraints
 
+white = "background-color:#fff;color:#333"
+green = "background-color:#d09557"
 
+checkColor ::  Int -> DS (Maybe Int) -> DS Text
+checkColor n d = let
+  f (Just i) = if i == n then green else white
+  f Nothing = white
+  in f <$> d
 
-radioChecks :: (MS m, Show a) => [a] -> m (DS (Maybe a))
+radioChecks :: forall a m . (MS m, Show a, HasIcons m a,MonadReader (DS Bool) m) => [a] -> m (DS (Maybe a))
 radioChecks xs = do
-  rec  (leftmost -> (v :: ES Int), ds) <- el "ul" $ fmap unzip .  forM (zip [0..] xs) $ \(i,x) -> el "li" $ do
+  rec   ixe :: ES (Int,a) <- fmap leftmost $ el "ul" $ forM (zip [0 ..] xs) $ \(i,x) ->
 
-                c <- fmap value $ checkbox False $ def  & checkboxConfig_setValue .~ (fmap $ (==) i) v
-                divClass "radiochecksText" $ text $ pack $ show $ x
-                return ((i <$) . ffilter id . updated $ c, (\y -> if y then Just x else Nothing) <$> c)
+                    elDynAttr "li" (fmap (M.singleton  "style") . checkColor i $ fmap fst <$> ixd)  $
+                      (fmap $ ((i,x) <$)) $ divClass "radiochecks-icon" $ getIcon x
 
-  return $ fmap msum $ sequence ds
+        let f :: (Int,a) -> Maybe (Int,a) -> Maybe (Int,a)
+            f (i,x) Nothing = Just (i,x)
+            f (i,x) (Just (i',_))
+              | i == i' = Nothing
+              | otherwise = Just (i,x)
+
+        ixd  <- foldDyn f Nothing $ ixe
+
+
+  return $ fmap snd <$> ixd
 
 onlength c d Nothing = c
 onlength c d (Just xs) = d xs
 
-valueInput :: (MS m) => Text -> (String -> Maybe a) -> m (DS (Maybe a))
+valueInput :: (MonadReader (DS Bool) m, MS m) => Text -> (String -> Maybe a) -> m (DS (Maybe a))
 valueInput placeholder reads = do
   rec   bg <- holdDyn "invalidInput" $ (onlength "invalidInput" $ const "validInput") <$> valueE
         valueD <- do

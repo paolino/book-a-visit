@@ -11,7 +11,10 @@ font-family: 'Enriqueta', arial, serif;line-height: 1.25;}
   border-color:#79584a;
   border-style:solid;
   border-bottom-width:4px;
-  
+}
+.propose {
+    padding-top:1em;
+
 }
 .section ul {
   border-width:0px;
@@ -85,7 +88,7 @@ button  {
   #border:3px inset red;
   padding:2px;
   #background-color:#ebf3eb;
-  position:fixed;  border-radius:4px;
+  position:absolute;  border-radius:4px;
   margin:0.1em;
   top:0;
   right:0;
@@ -147,9 +150,16 @@ i {
    color:green;
  }
 div .hints {
-  color:grey;font-size:70%;
-  display:inline;
-  margin-left:-1em;
+  color:#463333;
+  font-size:70%;
+  display;
+  margin-top:-1.5em;
+  text-align:center;
+  padding:0.2em;
+  padding-bottom:0.5em;padding-top:0.3em;
+  opacity:0.9;
+  border-radius:4px;
+  background:rgba(144, 238, 144, 0);
 }
 .propose .fa-calendar {
   color:#7a8652
@@ -161,7 +171,14 @@ div .hints {
   font-size:150%;
 }
 .abort ul{border-width:0px;}
-
+.info {
+  position:fixed;
+  top:0;
+  background:#e8b1e7;
+  opacity:0.9;
+  padding:0em;
+  border-radius:15em;
+}
 .abort ul li {
   border-width:0px;
   border-bottom-width:1px;
@@ -187,5 +204,33 @@ div .hints {
 
 .splash {
   margin:0.2em;
-  font-size:300%;
+  margin-top:2em;
+ 
+  font-style:italic;
+  font-size:330%;
   }
+.logged {
+  display:inline;
+}
+.logout {display:inline;}
+
+.compose {display:inline-flex;
+}
+
+.compose-x {display:inline;}
+
+.compose-plus {display:inline;margin-left:-1em}
+
+.compose-y {display:inline;margin-left:-1em;
+
+}
+.radiochecks li {
+border-radius:10em ;
+margin:0px;
+border:10px solid grey;
+}
+.radiochecks-icon {
+  margin:-0.3em;
+ 
+
+}

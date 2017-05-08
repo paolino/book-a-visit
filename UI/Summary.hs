@@ -54,7 +54,7 @@ import UI.Constraints
 
 
 showSummary :: (MS m, Showers a, ShowersU u a) => Summary u a -> m ()
-showSummary (Summary p ma cs mo) = divClass "summary" $ el "ul" $ do
+showSummary s@(Summary p ma cs mo) = divClass "summary" $ el "ul" $ do
   el "li" $ do
     text "bargain: "
     text $ pack $  p ^. bargain
@@ -64,9 +64,10 @@ showSummary (Summary p ma cs mo) = divClass "summary" $ el "ul" $ do
     text "proponent: "
     text $ pack $ show $ p ^. proponent
 
+
   case ma of
-      Nothing -> return ()
-      Just a -> do
+    Nothing -> return ()
+    Just a -> do
             text "accepter: "
             text $ pack $ show $ a ^. accepter
 
@@ -80,8 +81,9 @@ showSummary (Summary p ma cs mo) = divClass "summary" $ el "ul" $ do
 
   case cs of
     [] -> return ()
-    cs -> divClass "chats" $ el "ul" $ forM_ cs $ \c ->
-        el "li" $  text $ pack $ show $ c
+    cs -> do
+      divClass "chats" $ el "ul" $ forM_ (reverse cs) $ \c ->
+          el "li" $ showChat $ c
   case mo of
     Nothing -> return ()
     Just r -> el "li" $ text $ pack $ show $ r

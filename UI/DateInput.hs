@@ -55,12 +55,12 @@ import Text.Printf
 import UI.Constraints
 import UI.ValueInput
 import Data.Time ()
-
+import Control.Monad.Reader
 import Instance.Date
 
 data Selection a = Selected a | Back
 
-selectDay :: MS m => m (ES (Selection Day))
+selectDay :: (MonadReader (DS Bool) m, MS m) => m (ES (Selection Day))
 selectDay = divClass "select-day" $ el "ul" $ do
   bs <- forM [minBound .. maxBound] $ \d -> el "li" $ do
     fmap (Selected d <$) $ button $ pack $ show d
@@ -80,7 +80,7 @@ data Stage = Closed | Daying | Delting Day | Picked Date
 picked (Picked x) = Just x
 picked _ = Nothing
 
-pickDate' :: MS m => (Bool,Stage) -> m (ES Stage)
+pickDate' ::(MonadReader (DS Bool) m, MS m) => (Bool,Stage) -> m (ES Stage)
 pickDate' (False, Closed) = (Daying <$) <$> icon ["calendar","3x"] "pick a date"
 pickDate' (True, Closed) = (Daying <$) <$> icon ["calendar-times-o","3x"] "change the date"
 pickDate' (_,Daying) = do
@@ -95,7 +95,7 @@ pickDate' (_,Delting x) = do
   (f <$>) <$> selectATime
 pickDate' (r,_) = pickDate' (r,Closed)
 
-instance HasInput Date where
+instance (MonadReader (DS Bool) m, MS m) => HasInput m Date where
   getInput = divClass "pick-a-date" $ do
     rec domMorph (\d -> never <$ maybe (return ()) (divClass "picked-date" . text . pack . show) d) d
         r <- holdDyn Closed e
