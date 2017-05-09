@@ -19,7 +19,7 @@ import Control.Monad
 import System.Random
 --import Data.Either
 --import Control.Monad.Identity
---import qualified Data.Map as M
+import qualified Data.Map as M
 --import Data.Map (Map)
 import Data.Semigroup
 import Control.Category
@@ -119,15 +119,20 @@ instance GCompare k => IsList (DMap k f) where
   fromList = Data.Dependent.Map.fromList
   toList = Data.Dependent.Map.toList
 
+-------------------------------------------
+righting e = (\(Right x) -> x) <$> ffilter isRight e
+lefting e = (\(Left x) -> x) <$> ffilter isLeft e
+----------------------------------------
 
 class HasInput m a where
   getInput :: m (DS (Maybe a))
 
 class HasIcons m a where
-  getIcon :: a -> m (ES a)
+  getIcon :: a -> m (ES ())
 
 icon :: (MS m, MonadReader (DS Bool) m) => [Text] -> Text -> m (ES ())
-icon xs t = do  (r,_) <- divClass "icon-box" . elAttr' "i" [("class",foldl (\y x -> y <> " fa-" <> x ) "fa" xs)] $ return ()
+icon xs t =divClass "icon-box" $  do
+                (r,_) <- divClass "icon" $ elAttr' "i" [("class",foldl (\y x -> y <> " fa-" <> x ) "fa" xs)] $ return ()
                 ask >>= domMorph (\q -> if q then divClass "hints" (text t) >> return never else return never )
                 return $ domEvent Click r
 
@@ -138,6 +143,8 @@ composeIcon x y = fmap leftmost . divClass "compose" . sequence $ [
   divClass "compose-y" y
   ]
 
-righting e = (\(Right x) -> x) <$> ffilter isRight e
-lefting e = (\(Left x) -> x) <$> ffilter isLeft e
 
+
+floater x = do
+  t <- ask
+  elDynAttr "div" ((\t -> M.singleton "class" (if t then "combo-containerHints" else "combo-container")) <$> t ) . divClass "combo-buttons" $ x

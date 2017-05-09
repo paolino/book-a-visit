@@ -70,7 +70,7 @@ radioChecks xs = do
   rec   ixe :: ES (Int,a) <- fmap leftmost $ el "ul" $ forM (zip [0 ..] xs) $ \(i,x) ->
 
                     elDynAttr "li" (fmap (M.singleton  "style") . checkColor i $ fmap fst <$> ixd)  $
-                      (fmap $ ((i,x) <$)) $ divClass "radiochecks-icon" $ getIcon x
+                      (fmap $ ((i,x) <$)) $ divClass "radiochecks-icon" $ (x <$) <$> getIcon x
 
         let f :: (Int,a) -> Maybe (Int,a) -> Maybe (Int,a)
             f (i,x) Nothing = Just (i,x)
@@ -100,4 +100,8 @@ submit c = do
       f True =  icon ["check","3x"] "submit"
   domMorph f c
 
+yesno cy = floater $ do
+    sub <- submit cy
+    close <- icon ["close","3x"] "abandon"
+    return (sub,close)
 

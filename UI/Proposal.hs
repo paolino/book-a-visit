@@ -79,10 +79,12 @@ openWidget u step = el "ul" $ do
   bargain <- el "li" $ do
     elAttr "span" [("class","field")] $ text "what"
     valueInput "10 chars, minimum" validWhat
-  (sub,close) <- el "li" $ do
+
+  (sub,close) <- el "li" . floater $ do
     sub <- submit (fmap (all id) . sequence $ (isJust <$> time): (isJust <$> zone): [isJust <$> bargain])
     close <- icon ["close","3x"] "abandon"
     return (sub,close)
+
   return $ merge [
     RightG :=> (pushAlways (\r -> liftIO $ step r) $ ((,,) <$> (fromJust <$> bargain) <*> (fromJust <$> time) <*> (fromJust <$> zone)) `tagPromptlyDyn` sub),
     LeftG :=> close

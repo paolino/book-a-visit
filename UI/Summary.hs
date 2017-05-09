@@ -51,9 +51,9 @@ import Data.Monoid
 import Control.Monad.Trans
 import Data.Either
 import UI.Constraints
+import UI.Lib
 
-
-showSummary :: (MS m, Showers a, ShowersU u a) => Summary u a -> m ()
+showSummary :: (MS m, Showers a, ShowersU u a, HasIcons m (Zone u a), HasIcons m (Place (Opponent u) a)) => Summary u a -> m ()
 showSummary s@(Summary p ma cs mo) = divClass "summary" $ el "ul" $ do
   el "li" $ do
     text "bargain: "
@@ -62,22 +62,19 @@ showSummary s@(Summary p ma cs mo) = divClass "summary" $ el "ul" $ do
 
   el "li" $ do
     text "proponent: "
-    text $ pack $ show $ p ^. proponent
-
+    showPart $ p ^. proponent
 
   case ma of
     Nothing -> return ()
     Just a -> do
             text "accepter: "
-            text $ pack $ show $ a ^. accepter
+            showPart $ a ^. accepter
 
   el "li" $ do
     text "time: "
     text $ pack $ show $ p ^. slot
 
-  el "li" $ do
-    text "place: "
-    text $ pack $ maybe (show $ p ^. zone) (show . view place) ma
+  el "li" $ maybe (getIcon $ p ^. zone) (getIcon . view place) ma
 
   case cs of
     [] -> return ()
@@ -88,7 +85,7 @@ showSummary s@(Summary p ma cs mo) = divClass "summary" $ el "ul" $ do
     Nothing -> return ()
     Just r -> el "li" $ text $ pack $ show $ r
 
-showTransaction :: (MS m, Showers a, SummaryC u a) => Transaction s u a -> m ()
+showTransaction :: (MS m, Showers a, SummaryC u a,Icons m a) => Transaction s u a -> m ()
 showTransaction t = case summary t of
                 ETaker s -> showSummary s
                 EGiver s -> showSummary s

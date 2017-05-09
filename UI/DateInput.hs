@@ -57,6 +57,7 @@ import UI.ValueInput
 import Data.Time ()
 import Control.Monad.Reader
 import Instance.Date
+import UI.Lib
 
 data Selection a = Selected a | Back
 
@@ -64,15 +65,15 @@ selectDay :: (MonadReader (DS Bool) m, MS m) => m (ES (Selection Day))
 selectDay = divClass "select-day" $ el "ul" $ do
   bs <- forM [minBound .. maxBound] $ \d -> el "li" $ do
     fmap (Selected d <$) $ button $ pack $ show d
-  b <- fmap (Back <$) $ divClass "back" $ button "back"
+  b <- fmap (Back <$) $ floater $ icon ["arrow-left","2x"] "back"
   return $ leftmost (b:bs)
 
 times = map (\(x,y) -> Delta (ATime x) (ATime y)) $ zip <*> tail $  [7,7.5..22]
-selectATime :: MS m  => m (ES (Selection Delta))
+selectATime :: (MonadReader (DS Bool) m,MS m)  => m (ES (Selection Delta))
 selectATime = divClass "select-time" $ el "ul" $ do
   bs <- forM times $ \d -> el "li" $ do
     fmap (Selected d <$) $ button $ pack $ show d
-  b <- fmap (Back <$) $ divClass "back" $ button "back"
+  b <- fmap (Back <$) $ floater $ icon ["arrow-left","2x"] "back"
   return $ leftmost (b:bs)
 
 data Stage = Closed | Daying | Delting Day | Picked Date

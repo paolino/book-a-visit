@@ -54,13 +54,13 @@ import Data.Either
 import UI.Constraints
 import UI.Summary
 import Control.Monad.Reader
-
+import UI.ValueInput
 
 
 data Iconified  = Iconified | Disclosed
 
 
-abortWidget  :: (MonadReader (DS Bool) m, Read (Place (Opponent u) a), Showers a, SummaryC ('Present u) a, MS m)
+abortWidget  :: (MonadReader (DS Bool) m, Icons m a, Read (Place (Opponent u) a), Showers a, SummaryC ('Present u) a, MS m)
                 => Transaction ProposalT (Present u) a
                 -> Either Except (World a)
                 -> Iconified
@@ -68,18 +68,16 @@ abortWidget  :: (MonadReader (DS Bool) m, Read (Place (Opponent u) a), Showers a
 
 abortWidget t _ Iconified  = do
 
-  b <- divClass "select" $ icon ["close","3x"] "forget"
   showTransaction t
+  b <- floater$ icon ["close","3x"] "forget"
   return $ wire (LeftG :=> Disclosed <$ b)
 
 
 abortWidget t step Disclosed = do
   let f Nothing = el "ul" $ do
           divClass "modal" $ text "really want to abort the proposal?"
-          el "li" $ do
-            b <- (True <$) <$> icon ["check","3x"] "yes"
-            n <- (False <$) <$> icon ["close","3x"] "no"
-            return $ wire (RightG :=> leftmost [b,n])
+          (b,n) <- yesno (constDyn True)
+          return $ wire' RightG $ leftmost [True <$ b ,False <$ n]
       f (Just e) = do
         divClass "error" $ text $ pack $ show e
         wire' LeftG <$>  icon ["check","3x"] "got it"
@@ -93,7 +91,7 @@ abortWidget t step Disclosed = do
 
 
 
-abort :: (MonadReader (DS Bool) m, Showers a, Read (Place u a),  Reflexive u, SummaryC ('Present (Opponent u)) a, MS m)
+abort :: (MonadReader (DS Bool) m, Icons m a, Showers a, Read (Place u a),  Reflexive u, SummaryC ('Present (Opponent u)) a, MS m)
       => (Idx ProposalT (Present (Opponent u)) -> Either Except (World a))
         -> [(Idx ProposalT (Present (Opponent u)), Transaction ProposalT (Present (Opponent u)) a)]
         -> m (ES (World a))

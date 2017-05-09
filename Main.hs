@@ -70,7 +70,7 @@ involved (ETaker u) (EGiver s) = s ^? acceptance . _Just . accepter == Just u
 involved (EGiver u) (EGiver s) = s ^. proposal . proponent == u
 involved (EGiver u) (ETaker s) = s ^? acceptance . _Just . accepter == Just u
 
-waitingInterface  :: (MonadReader (DS Bool) m, MS m, Showers a, Chat a ~ String)
+waitingInterface  :: (Icons m a, MonadReader (DS Bool) m, MS m, Showers a, Chat a ~ String)
                   => Part u a
                   -> (Idx WaitingT Absent -> Chat a -> Either Except (World a))
 
@@ -84,7 +84,7 @@ waitingInterface u fchat fdrop  xs = el "ul" $ fmap leftmost . forM xs $ \(i,x) 
 
   return $ righting e
 
-waitingDriver :: (MonadReader (DS Bool) m, Chat a ~ String, SlotMatch a,Showers a, MS m, Eq (Part 'Giver a), Eq (Part 'Taker a)) => Roled Part a -> World a -> m (ES (World a))
+waitingDriver :: (Icons m a, MonadReader (DS Bool) m, Chat a ~ String, SlotMatch a,Showers a, MS m, Eq (Part 'Giver a), Eq (Part 'Taker a)) => Roled Part a -> World a -> m (ES (World a))
 waitingDriver u w =  case M.assocs . M.filter (involved u . summary) $ w ^. waiting of
                        [] -> return never
                        xs -> do
@@ -100,7 +100,7 @@ waitingDriver u w =  case M.assocs . M.filter (involved u . summary) $ w ^. wait
                                               xs
 
 
-abortDriver :: (MonadReader (DS Bool) m, Showers a,Readers a, SlotMatch a, Eq (Part Taker a), Eq (Part Giver a), MS m) => Roled Part a -> World a -> m (ES (World a))
+abortDriver :: (MonadReader (DS Bool) m, Icons m a, Showers a,Readers a, SlotMatch a, Eq (Part Taker a), Eq (Part Giver a), MS m) => Roled Part a -> World a -> m (ES (World a))
 abortDriver u w = divClass "abort" $ case u of
       ETaker u -> case M.assocs . M.filter (checkProponent u) $ w ^. proposalTaker of
                           [] -> return never
@@ -130,8 +130,8 @@ acceptanceDriver u w = divClass "accept" $ case u of
 data Section = ClosedSection | OpenSection
 proposalDriver u w = divClass "propose" $ do
   let f ClosedSection = do
-            e <-  icon ["plus-circle","3x"] "new proposal"
-            return $ wire (LeftG :=> OpenSection <$ e)
+          e <-  floater $ icon ["pencil","3x"] "new proposal"
+          return $ wire (LeftG :=> OpenSection <$ e)
       f OpenSection = do
             e <- open u w
             return $ merge [LeftG :=> ClosedSection <$ pick LeftG e, RightG :=> pick RightG e]
@@ -140,7 +140,7 @@ proposalDriver u w = divClass "propose" $ do
         e <- domMorph f s
   return $ pick RightG e
 
-finals :: (Showers a,Readers a, SlotMatch a, Eq (Part Taker a), Eq (Part Giver a), MS m) => Roled Part a ->  World a -> m ()
+finals :: (Showers a,Readers a, SlotMatch a, Icons m a, Eq (Part Taker a), Eq (Part Giver a), MS m) => Roled Part a ->  World a -> m ()
 finals u w = case filter (involved u . summary) . M.elems $ w ^. final of
                [] -> return ()
                xs -> do
@@ -157,13 +157,13 @@ displayWorld w = do
 -- main = mainWidgetWithCss (fromString css) $ do
 main = mainWidget $ do
     -- elAttr "link" [("href","style.css"),("type","text/css"),("rel","stylesheet")] $ return ()
-    rec t <- divClass "info" $ runReaderT (icon ["question","2x"] "info") d
-        d <- foldDyn (const not) False t
+    t <- divClass "info" $ runReaderT (icon ["question","2x"] "info") (constDyn False)
+    d <- foldDyn (const not) False t
     flip runReaderT d $ do
       u <- fakeLogin
 
       let f (Nothing,w) = divClass "nologin" (divClass "splash" $ text "Book a Visit") >> return never
-          f (Just u,w) = divClass "logged" $ do
+          f (Just u,w) = divClass "yeslogin" $ do
             wo <- divClass "section" $ proposalDriver u w
             wp <- divClass "section" $ acceptanceDriver u w
             wa <- divClass "section" $ abortDriver u w

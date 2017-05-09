@@ -69,7 +69,7 @@ fakeLogin = divClass "fakelogin" $ do
       f (Selected u) = do
         divClass "logged" $ showPart u
         (Selecting <$) <$> divClass "logout" (icon ["user","3x"] "logout")
-      f Selecting = (Selected <$>) <$>  leftmost <$> forM (users ++ vets)
+      f Selecting = divClass "selecting" $ (Selected <$>) <$>  leftmost <$> forM (users ++ vets)
         (\u -> divClass "login" $ (u <$) <$> buttonPart u)
 
 

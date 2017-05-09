@@ -62,40 +62,46 @@ data Iconified  = Iconified | Disclosed
 class Valid a b where
   valid :: a -> b -> Bool
 
-acceptanceWidget  :: (MonadReader (DS Bool) m, HasIcons m (Place u a), HasIcons m (Place (Opponent u) a), Valid (Zone u a) (Place (Opponent u ) a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
-                      Bounded (Place u a), Enum (Place u a),Read (Place (Opponent u) a), Showers a, ShowersU u a, SummaryC ('Present u) a, MS m)
+acceptanceWidget  :: (MonadReader (DS Bool) m, IconsU m u a, Valid (Zone u a) (Place (Opponent u ) a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
+                      Bounded (Place u a), Enum (Place u a),Read (Place (Opponent u) a), Showers a, ShowersU u a, SummaryC ('Present u) a, MS m, Icons m a)
                 => Transaction ProposalT (Present u) a
                 -> (Place (Opponent u) a -> Either Except (World a))
                 -> Iconified
                 -> m (Cable (EitherG Iconified (World a)))
 
 acceptanceWidget t _ Iconified  = do
-  b <- divClass "select" (icon ["handshake-o","3x"] "accept")
+  b <- floater (icon ["handshake-o","3x"] "accept")
   showTransaction t
   return $ wire (LeftG :=> Disclosed <$ b)
 
 
 acceptanceWidget t@(Proposal d) step Disclosed = do
-  b <- divClass "abort" (button (pack "close"))
-  let f Nothing = el "ul" $ do
-
-          place <- el "li" $ divClass "radiochecks" $ radioChecks $ filter (valid $ d ^. zone) [minBound .. maxBound]
-          b <- submit (isJust <$> place)
-          return $ Just <$> ((fromJust <$> place) `tagPromptlyDyn` b)
+  let f Nothing = do
+          e <- fmap updated . divClass "radiochecks" $ radioChecks $ filter (valid $ d ^. zone) [minBound .. maxBound]
+          return $ wire (RightG :=> e)
       f (Just e) = do
         divClass "error" $ text $ pack $ show e
-        (Nothing <$) <$>  button "got it"
-  rec   let   g p = step p
-              w' = g <$> fmapMaybe id zm
-              cm = leftmost [Just <$> lefting w',Nothing <$ ffilter isNothing zm]
-        zm <- domMorph f m
+        (wire . (LeftG :=>)) <$> button "got it"
+  rec   let
+            eew = step <$> fmapMaybe id sel
+            sel = pick RightG es
+            cm = leftmost [Just <$> lefting eew,Nothing <$ pick LeftG es] --ES
+        es <- domMorph f m
         m <- holdDyn Nothing cm
 
-  return $ merge [LeftG :=> Iconified <$ b, RightG :=> righting w']
+  selD <- holdDyn False (maybe False (const True) <$> sel)
+  (y,n) <- yesno selD
+  eewD <- holdDyn Nothing (Just  <$> righting eew)
+  return $ merge [
+    RightG :=> fmapMaybe id (eewD `tagPromptlyDyn` y)
+    , LeftG :=> Iconified <$ n --
+    ]
+
+  -- return $ merge [LeftG :=> Iconified <$ b, RightG :=> righting w']
 
 
 
-prenote :: (MonadReader (DS Bool) m, HasIcons m (Place u a),HasIcons m (Place (Opponent u) a),  Valid (Zone (Opponent u) a) (Place u a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
+prenote :: (MonadReader (DS Bool) m, IconsU m u a,IconsU m (Opponent u) a, Icons m a,  Valid (Zone (Opponent u) a) (Place u a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
                       Bounded (Place u a), Enum (Place u a),Show (Zone (Opponent u) a), ShowersU u a, Showers a, Read (Place u a), Reflexive u, SummaryC ('Present (Opponent u)) a, MS m)
         => Part u a
         -> (Idx ProposalT (Present (Opponent u)) -> Place u a -> Either Except (World a))

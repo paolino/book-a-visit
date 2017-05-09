@@ -106,22 +106,22 @@ ihome = icon ["home","3x"] "home"
 iworkshop = icon ["building-o","3x"] "office"
 
 instance (MonadReader (DS Bool) m,MS m) => HasIcons m (Zone Taker S) where
-  getIcon Here = (Here <$) <$> ihome
-  getIcon There = (There <$) <$> iworkshop
-  getIcon Anywhere = (Anywhere <$) <$> composeIcon (getIcon (Here :: Zone Taker S)) (getIcon There)
+  getIcon Here =  ihome
+  getIcon There =  iworkshop
+  getIcon Anywhere =  composeIcon (getIcon (Here :: Zone Taker S)) (getIcon (There:: Zone Taker S))
 
 instance (MonadReader (DS Bool) m,MS m) => HasIcons m (Zone Giver S) where
-  getIcon Here = (Here <$) <$>  iworkshop
-  getIcon There = (There <$) <$> ihome
-  getIcon Anywhere = (Anywhere <$) <$> composeIcon (getIcon (Here :: Zone Taker S)) (getIcon There)
+  getIcon Here =   iworkshop
+  getIcon There =  ihome
+  getIcon Anywhere = composeIcon (getIcon (Here :: Zone Giver S)) (getIcon (There :: Zone Giver S))
 
 instance (MonadReader (DS Bool) m,MS m) => HasIcons  m (Place Taker S) where
-  getIcon AtMyHome = (AtMyHome <$) <$> ihome
-  getIcon AtYourWorkshop = (AtYourWorkshop <$) <$> iworkshop
+  getIcon AtMyHome = ihome
+  getIcon AtYourWorkshop = iworkshop
 
 instance  (MonadReader (DS Bool) m,MS m) => HasIcons m (Place Giver S) where
-  getIcon AtYourHome = (AtYourHome <$) <$> ihome
-  getIcon AtMyWorkshop = (AtMyWorkshop <$) <$> iworkshop
+  getIcon AtYourHome = ihome
+  getIcon AtMyWorkshop = iworkshop
 deriving instance Show (World S)
 
 
