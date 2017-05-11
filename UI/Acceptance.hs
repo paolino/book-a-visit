@@ -18,6 +18,7 @@
 {-# language TypeInType #-}
 {-# language ViewPatterns #-}
 {-# language OverloadedLists #-}
+{-# language InstanceSigs #-}
 
 
 
@@ -52,26 +53,64 @@ import Control.Monad.Trans
 import Data.Either
 import Text.Read (readMaybe)
 import UI.Constraints
-import UI.Summary
 import UI.ValueInput
 import Control.Monad.Reader
-
+import UI.Transactions
 data Iconified  = Iconified | Disclosed
 
 
 class Valid a b where
   valid :: a -> b -> Bool
 
-acceptanceWidget  :: (MonadReader (DS Bool) m, IconsU m u a, Valid (Zone u a) (Place (Opponent u ) a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
-                      Bounded (Place u a), Enum (Place u a),Read (Place (Opponent u) a), Showers a, ShowersU u a, SummaryC ('Present u) a, MS m, Icons m a)
-                => Transaction ProposalT (Present u) a
+type AcceptCtx m r u a = (
+        MonadReader r m, 
+        IconsU m u a, 
+        Valid (Zone u a) (Place (Opponent u ) a), 
+        Bounded (Place (Opponent u) a), 
+        Enum (Place (Opponent u) a),
+        Bounded (Place u a), 
+        Enum (Place u a),
+        Read (Place (Opponent u) a), 
+        Showers a, 
+        ShowersU u a, 
+        SummaryC ('Present u) a, 
+        MS m, Eq (Part 'Taker a),Eq (Part 'Giver a),
+        Icons m a)
+
+        
+instance AcceptCtx m r Taker a => TransactionWidget m r ProposalT (Present Taker) a where
+        widgetOn :: Lens' r (DS ( Roled Part a)) -> Assoc s (Present Taker) a -> m (ES (World a))
+        widgetOn lu ip = asks (view lu) >>= domMorph (driverT ip)
+
+
+-- taker on taker, just show ours and the abort function
+driverT :: AcceptCtx m r Taker a => Assoc s (Present Taker) a -> Roled Part a -> m (ES (World a))
+driverT (_,Proposal (ProposalData b u' z s)) (ETaker u) 
+        | u /= u' = return never
+        | otherwise = return never
+{-
+acceptanceDriver u w = divClass "accept" $ case u of
+              ETaker u -> case M.assocs $ w ^. proposalGiver of
+                          [] -> return never
+                          xs -> do
+                              el "h3" $ text "Other's proposals"
+                              prenote u (\i p -> step (OtherI (FromTaker u (Appointment i p))) w) xs
+
+              EGiver u ->case M.assocs $ w ^. proposalTaker of
+                          [] -> return never
+                          xs -> do
+                              el "h3" $ text "Other's proposals"
+                              prenote u (\i p  -> step (OtherI (FromGiver u (Appointment i p))) w) xs
+
+
+acceptanceWidget  ::                 => Transaction ProposalT (Present u) a
                 -> (Place (Opponent u) a -> Either Except (World a))
                 -> Iconified
                 -> m (Cable (EitherG Iconified (World a)))
 
 acceptanceWidget t _ Iconified  = do
   b <- floater (icon ["handshake-o","3x"] "accept")
-  showTransaction t
+  
   return $ wire (LeftG :=> Disclosed <$ b)
 
 
@@ -115,4 +154,4 @@ prenote u step xs = el "ul" $ (fmap leftmost) $ forM xs$ \(i,t) -> el "li" $ do
 
           return $ pick RightG ws
 
-
+-}

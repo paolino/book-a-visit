@@ -32,7 +32,6 @@ data World a = World
   {   _proposalGiver  ::  MapW ProposalT (Present Giver) a
   ,   _proposalTaker  ::  MapW ProposalT (Present Taker) a
   ,   _waiting        ::  MapW WaitingT Absent a
-  ,   _dropping        ::  MapW DroppingT Absent a
   ,   _serving        ::  MapW ServingT Absent a
   ,   _releasing      ::  MapW ReleasingT Absent a
   ,   _final          ::  MapW FinalT Absent a
@@ -42,15 +41,14 @@ data World a = World
 makeLenses ''World
 
 instance Monoid (World a) where
-  mempty = World mempty mempty mempty mempty mempty mempty mempty
-  World s a v f q e h `mappend` World s' a' v' f' q' e' h' =
+  mempty = World mempty mempty mempty mempty mempty mempty 
+  World s a v f q e  `mappend` World s' a' v' f' q' e'  =
     World   (s `mappend` s')
             (a `mappend` a')
             (v `mappend` v')
             (f `mappend` f')
             (q `mappend` q')
             (e `mappend` e')
-            (h `mappend` h')
 
 data Chatting s a = Chatting (Idx s Absent) (Chat a)
 
@@ -63,10 +61,9 @@ data Protocol r u a where
   ChatWaiting :: Chatting WaitingT a -> Protocol OtherT u a
   ChatServing :: Chatting ServingT a -> Protocol OtherT u a
   ChatReleasing :: Chatting ReleasingT a -> Protocol OtherT u a
-  StartDrop :: Idx WaitingT Absent  -> Protocol OtherT Giver a
-  Fail :: Idx ServingT Absent   -> Failure a -> Protocol OtherT Giver a
+  Drop :: Idx WaitingT Absent  -> Protocol OtherT Giver a
+  Fail :: Idx ServingT Absent   -> Protocol OtherT Giver a
   Success :: Idx ReleasingT Absent -> Feedback a -> Protocol OtherT Taker a
-  EndDrop :: Idx DroppedT Absent -> Feedback a -> Protocol OtherT Taker a
 
 
 class Step m r a where
@@ -158,14 +155,12 @@ instance SlotMatch a => Step m OtherT a where
   step (other ->FromTaker p (ChatReleasing (Chatting i@(Idx j) c))) w =
     move releasing releasing j w noCheck $ \x -> ChattingReleasing x $ ETaker $ RChat c
 
-  step (other ->FromGiver p (StartDrop (Idx j))) w =
-    move dropping waiting j w noCheck Dropping
+  step (other ->FromGiver p (Drop (Idx j))) w =
+    move final waiting j w noCheck Dropped
 
-  step (other ->FromGiver p (Fail (Idx j) r)) w =
-    move final serving j w noCheck $ flip Failure r
+  step (other ->FromGiver p (Fail (Idx j))) w =
+    move final serving j w noCheck $ Failure 
 
   step (other ->FromTaker p (Success (Idx j) r)) w =
-    move final releasing j w noCheck $ flip Successed r
+    move final releasing j w noCheck $ (\i -> Successed i r)
 
-  step (other ->FromTaker p (EndDrop (Idx j) r)) w =
-    move final dropping j w noCheck $ flip Dropped r

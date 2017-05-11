@@ -34,7 +34,7 @@ data Presence (a :: kr)  where
   Present :: a -> Presence a
   Absent :: Presence a
 -- | kind to distinguish the transaction phases
-data Phase = BootT | ProposalT | WaitingT | DroppedT | ServingT | ReleasingT | DroppingT | FinalT | AcceptanceT
+data Phase = BootT | ProposalT | WaitingT | DroppedT | ServingT | ReleasingT |  FinalT | AcceptanceT
 
 -- | types of the identifications for both roles (what about Some ?) -- FIXIT
 data family Part (u :: Role) a
@@ -46,6 +46,8 @@ type family Opponent u where
 type Reflexive u = (Opponent (Opponent u) ~ u)
 data ERole x y = EGiver x | ETaker y deriving (Show,Eq)
 
+same (EGiver x) = x
+same (ETaker y) = y
 makePrisms ''ERole
 
 instance Bifunctor ERole where
@@ -114,46 +116,49 @@ data Transaction s (u :: Presence Role) a where
   ChattingWaiting :: Transaction WaitingT Absent a -> RoledChat a -> Transaction WaitingT Absent a
 
   -- | Consensual end
-  Dropping :: Transaction WaitingT Absent a -> Transaction DroppingT Absent a
+  Dropped :: Transaction WaitingT Absent a -> Transaction FinalT Absent a
 
-
+  -- | At the appointment
   Serving :: Transaction WaitingT Absent a -> Transaction ServingT Absent a
 
   -- | chatting during service time
   ChattingServing :: Transaction ServingT Absent a -> RoledChat a -> Transaction ServingT Absent a
 
+  -- | Visit over
   Releasing :: Transaction ServingT Absent a -> Transaction ReleasingT Absent a
-
+  -- | Thanks
   ChattingReleasing :: Transaction ReleasingT Absent a -> RoledChat a -> Transaction ReleasingT Absent a
-
+  
+  -- | Yes, we have it, the feedback
   Successed :: Transaction ReleasingT Absent a -> Feedback a -> Transaction FinalT Absent a
 
-  Dropped :: Transaction DroppingT Absent a -> Feedback a -> Transaction FinalT Absent a
+  -- | Oh no, a no-show
+  Failure :: Transaction ServingT Absent a -> Transaction FinalT Absent a
 
-  Failure :: Transaction ServingT Absent a -> Failure a -> Transaction FinalT Absent a
-
+  -- | Noone took the proposal  
   ExpiredProposal :: PresenceRoled (Transaction ProposalT) a -> Transaction FinalT Absent a
 
-  ExpiredDropping :: Transaction DroppingT Absent a  -> Transaction FinalT Absent a
-
+  -- | No feedback in a decent time
   ExpiredReleasing :: Transaction ReleasingT Absent a  -> Transaction FinalT Absent a
 
 
 
 deriving instance (UnPresent u a) => Show (Transaction s u a)
 
+data Overdue a = Ok (Feedback a) | NoShow | Expired | Renounce 
+
+deriving instance Show (Feedback a) => Show (Overdue a)
 
 data Summary u a = Summary {
   _proposal :: ProposalData u a,
   _acceptance :: Maybe (AcceptanceData (Opponent u) a),
   _chat :: [RoledChat a],
-  _feedback :: Maybe (Either (Failure a) (Feedback a))
+  _feedback :: Maybe (Overdue a)
 }
 
 deriving instance ConstraintsUA Show u a => Show (Summary u a)
 
 makeLenses ''Summary
-
 
 class SummaryC u a where
   summary :: forall s. Transaction s u a -> Roled Summary a
@@ -191,17 +196,15 @@ instance  SummaryC Absent a where
   summary (Aborted b) = summary `throughP` b
   summary (Waiting p) = summary `throughP` p
   summary (ChattingWaiting p x) = over chat (x:) `onBoth`  (summary p) where
-  summary (Dropping p) = summary p
-  summary (Dropped p x) = set feedback (Just $ Right x) `onBoth` summary p where
+  summary (Dropped p) = set feedback (Just Renounce) `onBoth` summary p
   summary (Serving p) = summary p
   summary (ChattingServing p x) =  over chat (x:) `onBoth` summary p where
-  summary (Failure p x) = set feedback (Just $ Left x) `onBoth` summary p
+  summary (Failure p) = set feedback (Just NoShow) `onBoth` summary p
   summary (Releasing p) = summary p
   summary (ChattingReleasing p x) =  over chat (x:) `onBoth` summary p where
-  summary (Successed p x) = set feedback (Just $ Right x) `onBoth` summary p
-  summary (ExpiredProposal x) = summary `throughP` x
-  summary (ExpiredReleasing x) = summary x
-  summary (ExpiredDropping x) = summary x
+  summary (Successed p x) = set feedback (Just $ Ok x) `onBoth` summary p
+  summary (ExpiredProposal x) = set feedback (Just Expired) `onBoth` (summary `throughP` x)
+  summary (ExpiredReleasing x) = set feedback (Just Expired) `onBoth` summary x
 
     {-
 

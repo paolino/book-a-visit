@@ -25,6 +25,8 @@
 -- https://youtu.be/btyhpyJTyXg?list=RDG8yEe55gq2c
 --
 module Main where
+import Data.List
+import Data.Ord
 import Data.Dependent.Map (DMap,DSum((:=>)), singleton)
 import qualified Data.Dependent.Map as DMap
 import Data.GADT.Compare (GCompare)
@@ -54,7 +56,6 @@ import UI.Proposal
 import UI.Abort
 import UI.FakeLogin
 import UI.Constraints
-import UI.Summary
 import Instance.Simple
 import UI.ValueInput
 import Control.Monad.Reader
@@ -70,6 +71,7 @@ involved (ETaker u) (EGiver s) = s ^? acceptance . _Just . accepter == Just u
 involved (EGiver u) (EGiver s) = s ^. proposal . proponent == u
 involved (EGiver u) (ETaker s) = s ^? acceptance . _Just . accepter == Just u
 
+
 waitingInterface  :: (Icons m a, MonadReader (DS Bool) m, MS m, Showers a, Chat a ~ String)
                   => Part u a
                   -> (Idx WaitingT Absent -> Chat a -> Either Except (World a))
@@ -78,7 +80,7 @@ waitingInterface  :: (Icons m a, MonadReader (DS Bool) m, MS m, Showers a, Chat 
                   -> [(Idx WaitingT Absent, Transaction WaitingT Absent a)]
                   -> m (ES (World a))
 waitingInterface u fchat fdrop  xs = el "ul" $ fmap leftmost . forM xs $ \(i,x) -> el "li" $ do
-  showTransaction x
+  -- showTransaction x
   (t :: DS (Maybe String)) <- divClass "chat" $ valueInput "chat" Just
   e <- fmap (fchat i) <$> fmapMaybe id <$> tagPromptlyDyn t <$> (submit $ constDyn True)
 
@@ -96,7 +98,7 @@ waitingDriver u w =  case M.assocs . M.filter (involved u . summary) $ w ^. wait
 
                                EGiver u -> waitingInterface u
                                               (\i c -> step (OtherI (FromGiver u (ChatWaiting $  Chatting i c)) )w ) -- message
-                                              (Just (\i -> step (OtherI (FromGiver u (StartDrop i)) )w)) -- message
+                                              (Just (\i -> step (OtherI (FromGiver u (World.Drop i)) )w)) -- message
                                               xs
 
 
@@ -146,8 +148,8 @@ finals u w = case filter (involved u . summary) . M.elems $ w ^. final of
                xs -> do
                   el "h3" $ text "Past appointments"
                   divClass "finals" $ el "ul" $ forM_ xs $ \t -> el "li" $ case summary t of
-                          EGiver t -> showSummary t
-                          ETaker t -> showSummary t
+                          EGiver t -> return () -- showSummary t
+                          ETaker t -> return () -- showSummary t
 
 
 displayWorld w = do

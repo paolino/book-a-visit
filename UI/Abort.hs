@@ -52,7 +52,6 @@ import Data.Monoid
 import Control.Monad.Trans
 import Data.Either
 import UI.Constraints
-import UI.Summary
 import Control.Monad.Reader
 import UI.ValueInput
 
@@ -68,7 +67,7 @@ abortWidget  :: (MonadReader (DS Bool) m, Icons m a, Read (Place (Opponent u) a)
 
 abortWidget t _ Iconified  = do
 
-  showTransaction t
+  -- showTransaction t
   b <- floater$ icon ["close","3x"] "forget"
   return $ wire (LeftG :=> Disclosed <$ b)
 

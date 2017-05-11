@@ -53,28 +53,41 @@ import Data.Either
 import UI.Constraints
 import UI.Lib
 
+rn :: MS m => m a -> m (ES b)
+rn f = f >> return never
+
+
+data ShowTransaction = 
+	| ShowProposalTaker
+	| ShowProposalGiver	
+
+
+
+showPlace (Summary p ma cs mo) = divClass "where" $ maybe (rn $ getIcon $ p ^. zone) (rn . getIcon . view place) ma
+showProposal 
+
 showSummary :: (MS m, Showers a, ShowersU u a, HasIcons m (Zone u a), HasIcons m (Place (Opponent u) a)) => Summary u a -> m ()
 showSummary s@(Summary p ma cs mo) = divClass "summary" $ el "ul" $ do
   el "li" $ do
     text "bargain: "
-    text $ pack $  p ^. bargain
+    text $ pack $ show $  p ^. bargain
 
 
   el "li" $ do
     text "proponent: "
-    showPart $ p ^. proponent
+    text $ pack  $ show $ p ^. proponent
 
   case ma of
     Nothing -> return ()
     Just a -> do
             text "accepter: "
-            showPart $ a ^. accepter
+            text $ pack $ show $ a ^. accepter
 
   el "li" $ do
     text "time: "
     text $ pack $ show $ p ^. slot
 
-  el "li" $ maybe (getIcon $ p ^. zone) (getIcon . view place) ma
+  el "li" $ maybe (rn $ getIcon $ p ^. zone) (rn . getIcon . view place) ma
 
   case cs of
     [] -> return ()

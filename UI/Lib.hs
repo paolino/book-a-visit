@@ -84,8 +84,6 @@ wire' x = merge . singleton x
 
 wire (k :=> v) = wire' k v
 ------------- Lib -------------------------------------
-instance GCompare k => Semigroup (DMap k Identity) where
-  (<>) = union
 
 -- | delay an Event by the amount of time specified in its value and random
 -- pick from chances
