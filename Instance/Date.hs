@@ -4,10 +4,12 @@ module Instance.Date where
 import Text.Printf
 
 
-data Day = Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday deriving (Show,Bounded,Enum)
+data Day = Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday deriving (Show,Bounded,Enum, Eq,Ord)
 
-data Delta = Delta ATime ATime
-data ATime = ATime Float
+data Delta = Delta ATime ATime deriving (Ord, Eq)
+
+data ATime = ATime Float deriving (Ord, Eq)
+
 
 instance Show ATime where
   show (ATime x) = let
@@ -18,7 +20,7 @@ instance Show ATime where
 instance Show Delta where
   show (Delta s e) = show s ++ "-" ++ show e
 
-data Date = Date Day Delta
+data Date = Date Day Delta deriving (Ord, Eq)
 
 instance Show Date where
   show (Date x y) = show x ++ " at " ++ show y

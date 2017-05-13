@@ -62,7 +62,7 @@ buttonPart p = do
 
 data Select a = Selected a | Selecting | LoggedOut
 
-fakeLogin :: forall m . (MonadReader (DS Bool) m, MS m) => m (DS (Maybe (Roled Part S)))
+fakeLogin :: forall m . (ShowPart S, MonadReader (DS Bool) m, MS m) => m (DS (Maybe (Roled Part S)))
 fakeLogin = divClass "fakelogin" $ do
   let f :: Select (Roled Part S) -> m (ES (Select (Roled Part S)))
       f LoggedOut = (Selecting <$) <$> divClass "login" (icon ["user","3x"] "login")

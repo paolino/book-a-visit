@@ -55,7 +55,7 @@ import Control.Monad
 import Control.Monad.Reader
 
 import UI.Constraints
-
+import HList
 white = "background-color:#fff;color:#333"
 green = "background-color:#d09557"
 
@@ -65,7 +65,7 @@ checkColor n d = let
   f Nothing = white
   in f <$> d
 
-radioChecks :: forall a m . (MS m, Show a, HasIcons m a,MonadReader (DS Bool) m) => [a] -> m (DS (Maybe a))
+radioChecks :: forall a m r. (MS m, HasIcons m a,MonadReader (DS r) m, In Bool r) => [a] -> m (DS (Maybe a))
 radioChecks xs = do
   rec   ixe :: ES (Int,a) <- fmap leftmost $ el "ul" $ forM (zip [0 ..] xs) $ \(i,x) ->
 
@@ -86,7 +86,7 @@ radioChecks xs = do
 onlength c d Nothing = c
 onlength c d (Just xs) = d xs
 
-valueInput :: (MonadReader (DS Bool) m, MS m) => Text -> (String -> Maybe a) -> m (DS (Maybe a))
+valueInput :: (MonadReader (DS r) m, In Bool r, MS m) => Text -> (String -> Maybe a) -> m (DS (Maybe a))
 valueInput placeholder reads = do
   rec   bg <- holdDyn "invalidInput" $ (onlength "invalidInput" $ const "validInput") <$> valueE
         valueD <- do

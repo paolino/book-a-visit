@@ -39,14 +39,13 @@ import Data.Maybe
 import Data.Monoid
 import Control.Monad.Trans
 import Data.Either
-import UI.Acceptance
-import UI.Proposal
+--import UI.Acceptance
+--iimport UI.Proposal
 import UI.Constraints
 import UI.Lib
 import Instance.Date
-import Reflex.Dom
+import Reflex.Dom hiding (Abort)
 import Control.Monad.Reader
-
 instance Valid (Zone Giver S) (Place Taker S) where
   valid Anywhere _ = True
   valid Here AtYourWorkshop = True
@@ -58,7 +57,8 @@ instance Valid (Zone Taker S) (Place Giver S) where
   valid Here AtYourHome = True
   valid There AtMyWorkshop = True
   valid _ _ = False
-
+{-
+-}
 data S
 data Possess = My | Your
 
@@ -77,12 +77,6 @@ type instance Feedback S = String
 
 fromBusiness (Business s) = s
 fromClient (Client s) = s
-
-instance SlotMatch S where
-  data Time S = T Day ATime
-  -- matchLow ((t0 , t1) (T t) = t >= t0
-  -- matchHigh (t0 , t1) (T t) = t >= t1
-
 
 instance ShowPart S where
   showPart (ETaker (Client p)) = do

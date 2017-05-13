@@ -23,8 +23,6 @@
 
 
 
--- https://youtu.be/btyhpyJTyXg?list=RDG8yEe55gq2c
---
 module UI.Acceptance where
 
 import Data.Dependent.Map (DMap,DSum((:=>)), singleton)
@@ -32,7 +30,7 @@ import qualified Data.Dependent.Map as DMap
 import Data.GADT.Compare (GCompare)
 import Data.GADT.Compare.TH
 import UI.Lib -- (MS,ES,DS, Reason, domMorph, EitherG(LeftG,RightG), rightG,leftG, Cable,sselect)
-import Reflex.Dom hiding (Delete, Insert, Link)
+import Reflex.Dom hiding (Delete, Insert, Link, Abort)
 import Data.Bifunctor
 import Control.Lens hiding (dropping)
 import Data.Data.Lens
@@ -55,67 +53,79 @@ import Text.Read (readMaybe)
 import UI.Constraints
 import UI.ValueInput
 import Control.Monad.Reader
-import UI.Transactions
-data Iconified  = Iconified | Disclosed
+import UI.Constraints
+import HList
+
+abortWidget 
+  ::  forall r m a e . ()
+  => (In Bool r, MonadReader (DS r) m, MS m) 
+  => Show e
+  => Either e (World a)
+  -> Iconified
+  -> m (Cable (EitherG Iconified (World a)))
+
+abortWidget _ Iconified  = do
+  b <- floater $  (icon ["close","3x"] "forget")
+  return $ wire (LeftG :=> Disclosed <$ b)
+
+abortWidget w Disclosed = do
+  let f Nothing = el "ul" $ do
+          divClass "modal" $ text "really want to abort the proposal?"
+          (b,n) <- yesno (constDyn True)
+          return $ wire' RightG $ leftmost [True <$ b ,False <$ n]
+      f (Just e) = do
+        divClass "error" $ text $ pack $ show e
+        wire' LeftG <$>  icon ["check","3x"] "got it"
+  rec   let
+            w' = w <$ ffilter id (pick RightG zm)
+            cm = leftmost [Just <$> lefting w',Nothing <$ pick LeftG zm]
+        zm <- domMorph f m
+        m <- holdDyn Nothing cm
+
+  return $ merge [LeftG :=> Iconified <$ ffilter not (pick RightG zm), RightG :=> righting w']
+
+abortDriver 
+  :: ()
+  => Show e
+  => (In Bool r, MonadReader (DS r) m,  MS m) 
+  => IconsU m Taker a
+  => IconsU m Giver a
+  =>  Either e (World a)
+  -> m (ES (World a))
+
+abortDriver step = do 
+          rec   ws <- domMorph (abortWidget step) s
+                s <- holdDyn Iconified (pick LeftG ws)
+
+          return $ pick RightG ws
+
+----------------------------------------------------------------
+---------------- Appointment ----------------------------------
+----------------------------------------------------------------
+----------------------------------------------------------------
+----------------------------------------------------------------
 
 
-class Valid a b where
-  valid :: a -> b -> Bool
 
-type AcceptCtx m r u a = (
-        MonadReader r m, 
-        IconsU m u a, 
-        Valid (Zone u a) (Place (Opponent u ) a), 
-        Bounded (Place (Opponent u) a), 
-        Enum (Place (Opponent u) a),
-        Bounded (Place u a), 
-        Enum (Place u a),
-        Read (Place (Opponent u) a), 
-        Showers a, 
-        ShowersU u a, 
-        SummaryC ('Present u) a, 
-        MS m, Eq (Part 'Taker a),Eq (Part 'Giver a),
-        Icons m a)
+acceptWidget 
+  :: forall a r m e u. ()
+  => (In Bool r, MonadReader (DS r) m, MS m) 
+  => IconsU m u a
+  => Show e
+  => Valid (Zone u a) (Place (Opponent u) a)
+  => (Place (Opponent u) a -> Either e (World a))
+  -> Transaction ProposalT (Present u) a
+  -> Iconified
+  -> m (Cable (EitherG Iconified (World a)))
 
-        
-instance AcceptCtx m r Taker a => TransactionWidget m r ProposalT (Present Taker) a where
-        widgetOn :: Lens' r (DS ( Roled Part a)) -> Assoc s (Present Taker) a -> m (ES (World a))
-        widgetOn lu ip = asks (view lu) >>= domMorph (driverT ip)
-
-
--- taker on taker, just show ours and the abort function
-driverT :: AcceptCtx m r Taker a => Assoc s (Present Taker) a -> Roled Part a -> m (ES (World a))
-driverT (_,Proposal (ProposalData b u' z s)) (ETaker u) 
-        | u /= u' = return never
-        | otherwise = return never
-{-
-acceptanceDriver u w = divClass "accept" $ case u of
-              ETaker u -> case M.assocs $ w ^. proposalGiver of
-                          [] -> return never
-                          xs -> do
-                              el "h3" $ text "Other's proposals"
-                              prenote u (\i p -> step (OtherI (FromTaker u (Appointment i p))) w) xs
-
-              EGiver u ->case M.assocs $ w ^. proposalTaker of
-                          [] -> return never
-                          xs -> do
-                              el "h3" $ text "Other's proposals"
-                              prenote u (\i p  -> step (OtherI (FromGiver u (Appointment i p))) w) xs
-
-
-acceptanceWidget  ::                 => Transaction ProposalT (Present u) a
-                -> (Place (Opponent u) a -> Either Except (World a))
-                -> Iconified
-                -> m (Cable (EitherG Iconified (World a)))
-
-acceptanceWidget t _ Iconified  = do
+acceptWidget _ _ Iconified  = do
   b <- floater (icon ["handshake-o","3x"] "accept")
-  
   return $ wire (LeftG :=> Disclosed <$ b)
 
 
-acceptanceWidget t@(Proposal d) step Disclosed = do
-  let f Nothing = do
+acceptWidget  step (Proposal d) Disclosed = do
+  let f :: Maybe e -> m (Cable (EitherG () (Maybe (Place (Opponent u) a))))
+      f Nothing = do
           e <- fmap updated . divClass "radiochecks" $ radioChecks $ filter (valid $ d ^. zone) [minBound .. maxBound]
           return $ wire (RightG :=> e)
       f (Just e) = do
@@ -136,22 +146,20 @@ acceptanceWidget t@(Proposal d) step Disclosed = do
     , LeftG :=> Iconified <$ n --
     ]
 
-  -- return $ merge [LeftG :=> Iconified <$ b, RightG :=> righting w']
+acceptDriver 
+  :: ()
+  => Show e
+  => (In Bool r, MonadReader (DS r) m,  MS m) 
+  => IconsU m u a
+  => IconsU m (Opponent u) a
+  => Valid (Zone u a) (Place (Opponent u) a)
+  =>  (Place (Opponent u) a -> Either e (World a))
+  -> Transaction ProposalT (Present u) a
+  -> m (ES (World a))
 
 
-
-prenote :: (MonadReader (DS Bool) m, IconsU m u a,IconsU m (Opponent u) a, Icons m a,  Valid (Zone (Opponent u) a) (Place u a), Bounded (Place (Opponent u) a), Enum (Place (Opponent u) a),
-                      Bounded (Place u a), Enum (Place u a),Show (Zone (Opponent u) a), ShowersU u a, Showers a, Read (Place u a), Reflexive u, SummaryC ('Present (Opponent u)) a, MS m)
-        => Part u a
-        -> (Idx ProposalT (Present (Opponent u)) -> Place u a -> Either Except (World a))
-        -> [(Idx ProposalT (Present (Opponent u)), Transaction ProposalT (Present (Opponent u)) a)]
-        -> m (ES (World a))
-
-prenote u step xs = el "ul" $ (fmap leftmost) $ forM xs$ \(i,t) -> el "li" $ do
-
-          rec   ws <- domMorph (acceptanceWidget t $ step i) s
+acceptDriver step u = do
+          rec   ws <- domMorph (acceptWidget step u) s
                 s <- holdDyn Iconified (pick LeftG ws)
-
           return $ pick RightG ws
 
--}

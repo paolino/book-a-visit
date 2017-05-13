@@ -57,14 +57,17 @@ import UI.DateInput
 import qualified GHCJS.DOM.HTMLInputElement as J
 import qualified GHCJS.DOM.Element as J
 
+import HList
 
-camera = elAttr "i" [("class","fa fa-camera-retro")] $ text "fa-camera-retro"
 validWhat x | length x > 10 = Just x
             | otherwise = Nothing
 
-openWidget  :: forall a u m . (MonadReader (DS Bool) m, HasIcons m (Zone u a), HasInput m (Slot a), ReadersU u a, Enum (Zone u a), Bounded (Zone u a), ShowersU u a,  MS m)
+openWidget  
+      :: forall a u m r.  ()
+      => ( Enum (Zone u a), Bounded (Zone u a), ShowersU u a, Bargain a ~ [Char])
+      => (MonadReader (DS r) m, In Bool r, HasIcons m (Zone u a), HasInput m (Slot a), MS m)        
       => Part u a -- who I am
-      -> ((Bargain a,Slot a, Zone u a) -> IO (World a))
+      -> ((Bargain a,Slot a, Zone u a) -> World a)
       -> m (Cable (EitherG () (World a)))
 openWidget u step = el "ul" $ do
   -- zone <-  el "li" $ valueInput "where" readMaybe
@@ -86,13 +89,28 @@ openWidget u step = el "ul" $ do
     return (sub,close)
 
   return $ merge [
-    RightG :=> (pushAlways (\r -> liftIO $ step r) $ ((,,) <$> (fromJust <$> bargain) <*> (fromJust <$> time) <*> (fromJust <$> zone)) `tagPromptlyDyn` sub),
+    RightG :=> (fmap step $ ((,,) <$> (fromJust <$> bargain) <*> (fromJust <$> time) <*> (fromJust <$> zone)) `tagPromptlyDyn` sub),
     LeftG :=> close
     ]
 
-open (EGiver u) w = openWidget u (\(b,t,z) -> liftIO $ step (NewI (randomIO, FromGiver u (New b t z))) w)
-open (ETaker u) w = openWidget u (\(b,t,z) -> liftIO $ step (NewI (randomIO, FromTaker u (New b t z))) w)
+open (EGiver u) w = do
+  n <- liftIO $ randomIO
+  openWidget u (\(b,t,z) -> runIdentity $ step (New (Idx n) b t z) u w)
+open (ETaker u) w = do
+  n <- liftIO $ randomIO
+  openWidget u (\(b,t,z) -> runIdentity $ step (New (Idx n) b t z) u w)
 
-partitionE :: (a -> Bool) -> ES a -> (ES a, ES a)
-partitionE f = fanEither . fmap (\x -> if f x then Left x else Right x)
+data Section = ClosedSection | OpenSection
+proposalDriver u w = divClass "propose record" $ do
+  let f ClosedSection = do
+          e <-  floater $ icon ["pencil","3x"] "new proposal"
+          return $ wire (LeftG :=> OpenSection <$ e)
+      f OpenSection = do
+            e <- open u w
+            return $ merge [LeftG :=> ClosedSection <$ pick LeftG e, RightG :=> pick RightG e]
+
+  rec   s <- holdDyn ClosedSection $ pick LeftG e
+        e <- domMorph f s
+  return $ pick RightG e
+
 

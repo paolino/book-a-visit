@@ -39,6 +39,7 @@ import Control.Monad.Trans
 import Data.Either
 import Control.Monad.Reader
 
+import HList
 -------  reflex missings --------------
 type Morph t m a = Dynamic t (m a) -> m (Event t a)
 
@@ -128,13 +129,13 @@ class HasInput m a where
 class HasIcons m a where
   getIcon :: a -> m (ES ())
 
-icon :: (MS m, MonadReader (DS Bool) m) => [Text] -> Text -> m (ES ())
+icon :: (MS m, MonadReader (DS r) m, In Bool r) => [Text] -> Text -> m (ES ())
 icon xs t =divClass "icon-box" $  do
                 (r,_) <- divClass "icon" $ elAttr' "i" [("class",foldl (\y x -> y <> " fa-" <> x ) "fa" xs)] $ return ()
-                ask >>= domMorph (\q -> if q then divClass "hints" (text t) >> return never else return never )
+                asks (fmap see)  >>= domMorph (\q -> if q then divClass "hints" (text t) >> return never else return never )
                 return $ domEvent Click r
 
-composeIcon :: (MonadReader (DS Bool) m, MS m) => m (ES a) -> m (ES a)  -> m (ES a)
+composeIcon :: (MonadReader (DS r) m, In Bool r, MS m) => m (ES a) -> m (ES a)  -> m (ES a)
 composeIcon x y = fmap leftmost . divClass "compose" . sequence $ [
   divClass "compose-x" x,
   divClass "compose-plus" (icon ["plus","2x"] "or") >> return never,
@@ -142,7 +143,7 @@ composeIcon x y = fmap leftmost . divClass "compose" . sequence $ [
   ]
 
 
-
+data Iconified = Iconified | Disclosed
 floater x = do
-  t <- ask
+  t <- asks (fmap see)
   elDynAttr "div" ((\t -> M.singleton "class" (if t then "combo-containerHints" else "combo-container")) <$> t ) . divClass "combo-buttons" $ x
