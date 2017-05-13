@@ -64,7 +64,7 @@ validWhat x | length x > 10 = Just x
 
 openWidget  
       :: forall a u m r.  ()
-      => ( Enum (Zone u a), Bounded (Zone u a), ShowersU u a, Bargain a ~ [Char])
+      => ( Enum (Zone u a), Bounded (Zone u a),  Bargain a ~ [Char])
       => (MonadReader (DS r) m, In Bool r, HasIcons m (Zone u a), HasInput m (Slot a), MS m)        
       => Part u a -- who I am
       -> ((Bargain a,Slot a, Zone u a) -> World a)

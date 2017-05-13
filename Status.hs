@@ -26,56 +26,72 @@ import GHC.Base
 import Data.Aeson.TH
 import Data.Char
 
--- | kind to distinguish the presence of a role
+-- | kind to distinguish the role
 data Role = Giver | Taker
 
-
-data Presence (a :: kr)  where
-  Present :: a -> Presence a
-  Absent :: Presence a
--- | kind to distinguish the transaction phases
-data Phase = BootT | ProposalT | WaitingT | DroppedT | ServingT | ReleasingT |  FinalT | AcceptanceT
-
--- | types of the identifications for both roles (what about Some ?) -- FIXIT
-data family Part (u :: Role) a
-
+-- | Simmetricity of 'Role'
 type family Opponent u where
   Opponent Giver = Taker
   Opponent Taker = Giver
 
+-- | Refelexivity of 'Opponent'
 type Reflexive u = (Opponent (Opponent u) ~ u)
+
+
+-- | Type level 'Maybe'
+data Presence (a :: k)  where
+  Present :: a -> Presence a
+  Absent :: Presence a
+
+-- | kind to distinguish the transaction phases
+data Phase = BootT | ProposalT | WaitingT | DroppedT | ServingT | ReleasingT |  FinalT | AcceptanceT
+
+-- | istantiation of the identifications for both roles
+data family Part (u :: Role) a
+
+-- | An 'Either' clone 
 data ERole x y = EGiver x | ETaker y deriving (Show,Eq)
 
+-- | extract 
+same :: ERole a a -> a
 same (EGiver x) = x
 same (ETaker y) = y
-makePrisms ''ERole
 
 instance Bifunctor ERole where
   bimap f g (EGiver x) = EGiver (f x)
   bimap f g (ETaker x) = ETaker (g x)
 
-type Roled f (a :: k) = ERole (f Giver a)  (f Taker a)
+-- | ERole specialization to a type constructor depending on a 'Role'
+type Roled (f :: Role -> Type -> Type)  a = ERole (f Giver a)  (f Taker a)
 
 
-
+-- | Data for zones
 data family Zone (u :: Role) a
+-- | Data for places
 data family Place (u :: Role) a
+-- | type of a span of time
 type family Slot a
+-- | type for an definition of bargain
 type family Bargain a
+-- | type of a message
 type family Chat a
+-- | type of a feedback
 type family Feedback a
-type family Failure a
 
-type Classes (c :: * -> Constraint)  a = (c (Failure a), c (Feedback a), c (Chat a), c (Bargain a), c (Slot a))
+type Classes (c :: * -> Constraint)  a = ( c (Feedback a), c (Chat a), c (Bargain a), c (Slot a))
 type ClassesU (c :: * -> Constraint)  u a = ( c (Part u a), c (Zone u a), c (Place u a))
 type ConstraintsA (c :: * -> Constraint) a = (ClassesU Show Giver a, ClassesU Show Taker a, Classes Show a)
 type ConstraintsUA (c :: * -> Constraint) u a = (ClassesU c u a,ClassesU c (Opponent u) a,ClassesU c Giver a, ClassesU c Taker a ,Classes c a)
 
+-- | type tagged chat usable with Roled
 newtype RChat (u :: Role) a = RChat (Chat a)
+
+-- | A 'Roled' 'Chat'
 type RoledChat a = Roled RChat a
 
 deriving instance ConstraintsA Show a => Show (RChat u a)
 
+-- | Core data for the initial 'Transaction' phase
 data ProposalData u a = ProposalData {
   _bargain :: Bargain a,
   _proponent :: Part u a,
@@ -84,8 +100,11 @@ data ProposalData u a = ProposalData {
   }
 
 makeLenses ''ProposalData
+
 deriving instance (Classes Show a, ClassesU Show u a) => Show (ProposalData u a)
 deriving instance (Classes Show a, ClassesU Show u a) => Show (AcceptanceData u a)
+
+-- | Core data for the 'AcceptanceT' phase
 data AcceptanceData u a = AcceptanceData {
   _accepter :: Part u a,
   _place :: Place u a
@@ -94,15 +113,21 @@ data AcceptanceData u a = AcceptanceData {
 
 makeLenses ''AcceptanceData
 
+-- | Dependent constraints based on 'Presence'
 type family UnPresent b a where
   UnPresent ('Present u) a = ConstraintsUA Show u a
   UnPresent Absent a = ConstraintsA Show a
 
-type PresenceRoled f (a :: k) = ERole (f (Present Giver) a)  (f (Present Taker) a)
--- | Transaction
-data Transaction s (u :: Presence Role) a where
+-- | A specialized ERole for a type 'Presence' 'Role'
+type PresenceRoled (f :: Presence Role -> Type -> Type)  a= ERole (f (Present Giver) a)  (f (Present Taker) a)
+
+-- | Transactions 
+data Transaction s (u :: Presence Role) (a :: Type) where
+
+  -- | The base 'Transaction'
 
   Proposal :: ProposalData u a -> Transaction ProposalT (Present u) a
+  
   -- | dropping a proposal
   Aborted :: PresenceRoled (Transaction ProposalT) a -> Transaction FinalT Absent a
 

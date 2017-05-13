@@ -40,7 +40,7 @@ import UI.Acceptance
 import HList
 import Data.Text (pack)
 import UI.Constraints
-
+import Constraints
 check c f = if c then f else return never
 transaction 
     :: (MS m, MonadReader (DS r) m , In Bool r)

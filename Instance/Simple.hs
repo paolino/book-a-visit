@@ -60,7 +60,6 @@ instance Valid (Zone Taker S) (Place Giver S) where
 {-
 -}
 data S
-data Possess = My | Your
 
 ---------- example -------------------------------
 type instance Bargain S = String
@@ -72,7 +71,6 @@ data instance Place Taker S = AtMyHome | AtYourWorkshop deriving (Read, Show, Bo
 data instance Place Giver S = AtMyWorkshop | AtYourHome deriving (Read, Show, Bounded, Enum)
 type instance Slot S = Date
 -- type instance Time S = (Float)
-type instance Failure S = String
 type instance Feedback S = String
 
 fromBusiness (Business s) = s

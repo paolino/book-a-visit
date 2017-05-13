@@ -28,10 +28,15 @@ import Data.Kind
 import Data.List
 import Data.Ord
 import Control.Arrow
+import Constraints
 
+-- | Typed index for a 'Transition' in a 'World'
 newtype Idx (s::Phase) (u :: Presence Role)  = Idx Integer deriving (Eq, Ord, Show)
+
+-- | A 'Map' from an 'Idx' to a 'Transaction'
 type MapW (s :: Phase) (u :: Presence Role) a = Map (Idx s u ) (Transaction s u a)
 
+-- | A world of 'Transaction's subdivided by type
 data World a = World
   {   _proposalGiver  ::  MapW ProposalT (Present Giver) a
   ,   _proposalTaker  ::  MapW ProposalT (Present Taker) a
@@ -55,23 +60,35 @@ instance Monoid (World a) where
             (e `mappend` e')
 
 
-data StepT = NewT | OtherT | TimeT
+-- | kind of 'Protocol's
+data ProtocolT = NewT | OtherT {-  | TimeT -}
 
-data Protocol r u a where
+-- | 'World' modification protocol
+data Protocol (r :: ProtocolT) (u :: Role) a where
+  -- | create a new 'Proposal'
   New           :: Idx ProposalT (Present u) -> Bargain a 
                     -> Slot a -> Zone u a                    -> Protocol NewT u a
+  -- | abort a 'Proposal'
   Abort         :: Idx ProposalT (Present u)                 -> Protocol OtherT u a
+  -- | Accept a 'Proposal'
   Appointment   :: Idx ProposalT (Present (Opponent u)) 
                         -> Place u a                          -> Protocol OtherT u a
+  -- | Chatting
   ChatWaiting   :: Idx WaitingT Absent -> Chat a              -> Protocol OtherT u a
+  -- | Chatting
   ChatServing   :: Idx ServingT Absent -> Chat a              -> Protocol OtherT u a
+  -- | Chatting 
   ChatReleasing :: Idx ReleasingT Absent -> Chat a            -> Protocol OtherT u a
+  -- | Drop a 'WaitingT' 'Transaction'
   Drop          :: Idx WaitingT Absent                        -> Protocol OtherT Giver a
+  -- | Fail a ServingT 'Transaction'
   Fail          :: Idx ServingT Absent                        -> Protocol OtherT Giver a
+  -- | Give a final 'Feedback'
   Success       :: Idx ReleasingT Absent -> Feedback a        -> Protocol OtherT Taker a
 
 
-class Step (r :: StepT) u a where
+-- | Stepping a 'World' with a 'Protocol' and an author ('Part')
+class Step (r :: ProtocolT) u a where
   type Ctx r a :: Type -> Type
   step :: Protocol r u a -> Part u a -> World a -> Ctx r a (World a)
 
@@ -87,10 +104,23 @@ instance Step NewT Giver a where
   step (New idx b s z) u w = Identity $ 
     proposalGiver . at idx .~ Just (Proposal (ProposalData b u z s)) $ w
 
+-- | Errors we can do by 'step'
 data OErrors = IndexNotFound | NotAllowed deriving (Show)
 
+-- | A generic validity expression
 class Valid a b where
   valid :: a -> b -> Bool
+
+-- | check a 'Part' is inside the 'Summary' of a 'Transaction'  
+involved :: (Eqs Taker a, Eqs Giver a) => Roled Part a -> Roled Summary a -> Bool
+involved (ETaker u) (ETaker s) = s ^. proposal . proponent == u
+involved (ETaker u) (EGiver s) = s ^? acceptance . _Just . accepter == Just u
+involved (EGiver u) (EGiver s) = s ^. proposal . proponent == u
+involved (EGiver u) (ETaker s) = s ^? acceptance . _Just . accepter == Just u
+
+checkInvolved u t = case involved u (summary t) of
+    False -> Just NotAllowed
+    True -> Nothing
 
 instance (Valid (Zone Taker a) (Place Giver a),Eq (Part 'Giver a)) => Step OtherT Giver a where
   type Ctx OtherT a = Either OErrors
@@ -141,13 +171,13 @@ abort l e (Abort idx@(Idx i)) u w = move final l i w
     (Aborted . e)
 
 
-move :: Lens' (World a) (MapW s u a)
-     -> Lens' (World a) (MapW s' u' a)
-     -> Integer
-     -> World a
-     -> (Transaction s' u' a -> Maybe OErrors)
-     -> (Transaction s' u' a -> Transaction s u a)
-     -> Either OErrors (World a)
+move :: Lens' (World a) (MapW s u a) -- ending set
+     -> Lens' (World a) (MapW s' u' a) -- starting set
+     -> Integer -- untyped index
+     -> World a -- the world
+     -> (Transaction s' u' a -> Maybe OErrors) -- check for errors
+     -> (Transaction s' u' a -> Transaction s u a) -- transact
+     -> Either OErrors (World a) -- the new orld
 
 move l1 l2 j w c f =     case w ^. l2 . at (Idx j) of
       Nothing -> Left IndexNotFound
@@ -155,6 +185,7 @@ move l1 l2 j w c f =     case w ^. l2 . at (Idx j) of
                   Nothing -> Right $ (l1 . at (Idx j) .~ Just (f x))  . (l2 . at (Idx j) .~ Nothing) $ w
                   Just e ->  Left e
 
+-- | shortcut for the 'Transaction' 'Slot'
 getSlot :: (SummaryC p a) =>  Transaction s p a -> Slot a
 getSlot x = view (proposal . slot) `through` summary x
 
@@ -164,8 +195,10 @@ data Box a  where
     TGiver :: Idx s (Present Giver) -> Transaction s (Present Giver)  a -> Box a
     TAbsent :: Idx s Absent -> Transaction s Absent a -> Box a
 
+-- | a set of transactions, ordered by time
 type State a = [Box a]
 
+-- | create a 'State' of one 'World' 
 state :: Ord (Slot a) => World a -> State a
 state w = map snd . sortBy (comparing fst) . concat  $ 
          [     map (getSlot . snd &&& uncurry TTaker) . M.assocs $ w ^. proposalTaker 

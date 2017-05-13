@@ -41,8 +41,6 @@ import Data.Typeable
 import Control.Lens.TH
 import System.Random
 import qualified Data.Map as M
-import Status
-import World
 import Data.Text (Text,pack,unpack)
 import Data.String.Here
 import Data.String
@@ -50,28 +48,20 @@ import Control.Monad
 import Data.Maybe
 import Data.Monoid
 import Control.Monad.Trans
+import Control.Monad.Reader
 import Data.Either
-import UI.Acceptance
 import UI.Proposal
 import UI.FakeLogin
 import UI.Constraints
 import Instance.Simple
-import UI.ValueInput
-import Control.Monad.Reader
 
 import UI.Transactions
 
-css = [hereFile|style.css|]
-
-
+import Status
+import World
+import Constraints
 checkProponent :: Eq (Part u a)  => Part u a -> Transaction s (Present u) a -> Bool
 checkProponent u (Proposal t)  = t ^. proponent == u
-
-involved (ETaker u) (ETaker s) = s ^. proposal . proponent == u
-involved (ETaker u) (EGiver s) = s ^? acceptance . _Just . accepter == Just u
-involved (EGiver u) (EGiver s) = s ^. proposal . proponent == u
-involved (EGiver u) (ETaker s) = s ^? acceptance . _Just . accepter == Just u
-
 
 
 
@@ -79,9 +69,7 @@ displayWorld w = do
   el "h3" $ text "Your world view"
   divClass "small" $ dynText $ pack <$> show <$> w
 
--- main = mainWidgetWithCss (fromString css) $ do
 main = mainWidget $ do
-    -- elAttr "link" [("href","style.css"),("type","text/css"),("rel","stylesheet")] $ return ()
     t <- divClass "info" $ runReaderT (icon ["question","2x"] "info") (constDyn False)
     d <- foldDyn (const not) False t
     flip runReaderT d $ do
@@ -96,16 +84,11 @@ main = mainWidget $ do
       rec   w :: DS (World S) <- holdDyn mempty dw
             dw <- domMorph f $ (,) <$> u <*> w
 
+      divClass "footer" . divClass "footer-fields" $ do 
+        
+        divClass "copyright" $ text "Paolo Veronelli ©"
+        divClass "code-link" $ elAttr "a" [("href","https://github.com/paolino/book-a-visit")] $ text "code repository"
+        divClass "code-link" $ elAttr "a" [("href","http://lambdasistemi.net/public/book-a-visit.jsexe/api")] $ text "api"
 
-{-
-    el "hr" $ return ()
-    let sw False = (True <$) <$> button "show-world"
-        sw True = do
-            displayWorld w
-            (False <$) <$> button "hide-world"
-
-    rec s <- domMorph sw r
-        r <- holdDyn False s
--}
       return ()
 

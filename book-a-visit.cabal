@@ -23,5 +23,6 @@ executable book-a-visit
                        
           -- hs-source-dirs:      
 
-  other-modules: World,Status,UI.Lib,UI.FakeLogin,UI.Acceptance,UI.Proposal,Instance.Simple,UI.Transactions
+  other-modules: World,Status,UI.Lib,UI.FakeLogin,UI.Acceptance,UI.Proposal,UI.Transactions,Constraints,UI.Constraints,
+            Instance.Simple,Instance.Date, HList, UI.ValueInput, UI.DateInput
   default-language:    Haskell2010

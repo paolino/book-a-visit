@@ -16,3 +16,6 @@ compress:
 upload:
 	scp index.min.html book-a-visit.jsexe/all.min.js book-a-visit.jsexe/style.css lambdasistemi.net:public/book-a-visit.jsexe
 
+api-docs:
+	cabal haddock --executables
+	scp -r dist/doc/html/book-a-visit/book-a-visit/* lambdasistemi.net:public/book-a-visit.jsexe/api
