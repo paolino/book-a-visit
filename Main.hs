@@ -60,14 +60,25 @@ import UI.Transactions
 import Status
 import World
 import Constraints
-checkProponent :: Eq (Part u a)  => Part u a -> Transaction s (Present u) a -> Bool
-checkProponent u (Proposal t)  = t ^. proponent == u
+
+data Rolled = Rolled | UnRolled
+
+rollable b w = let
+    f Rolled = divClass "rolled" $ do
+        r <- divClass "rolling" $ (UnRolled <$) <$> floater (icon ["arrow-down","3x"] "unroll")
+        divClass "slot" $ text . pack . show $ throughBox getSlot b
+        return $ wire' LeftG r
+    f UnRolled = divClass "unrolled" $ do
+        r <- divClass "rolling" $ (Rolled <$) <$> floater (icon ["arrow-up","3x"] "rollup")
+        h <- divClass "transaction" $ w
+        return $ merge [LeftG :=> r, RightG :=> h]
+    in do
+        rec     s <- holdDyn Rolled (pick LeftG e)
+                e <- domMorph f s
+        return $ pick RightG e
+         
 
 
-
-displayWorld w = do
-  el "h3" $ text "Your world view"
-  divClass "small" $ dynText $ pack <$> show <$> w
 
 main = mainWidget $ do
     t <- divClass "info" $ runReaderT (icon ["question","2x"] "info") (constDyn False)
@@ -78,7 +89,7 @@ main = mainWidget $ do
       let f (Nothing,w) = divClass "nologin" (divClass "splash" $ text "Book a Visit") >> return never
           f (Just u,w) = divClass "yeslogin" $ do
                             wo <- proposalDriver u w
-                            wt <- leftmost <$> mapM (\x -> transaction u x w) (state w)
+                            wt <- leftmost <$> mapM (\x -> rollable x $ transaction u x w) (state w)
                             return $ leftmost [wo,wt]
 
       rec   w :: DS (World S) <- holdDyn mempty dw
@@ -88,7 +99,7 @@ main = mainWidget $ do
         
         divClass "copyright" $ text "Paolo Veronelli ©"
         divClass "code-link" $ elAttr "a" [("href","https://github.com/paolino/book-a-visit")] $ text "code repository"
-        divClass "code-link" $ elAttr "a" [("href","http://lambdasistemi.net/public/book-a-visit.jsexe/api")] $ text "api"
+        divClass "code-api" $ elAttr "a" [("href","http://lambdasistemi.net/public/book-a-visit.jsexe/api")] $ text "api"
 
       return ()
 

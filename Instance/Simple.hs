@@ -78,20 +78,20 @@ fromClient (Client s) = s
 
 instance ShowPart S where
   showPart (ETaker (Client p)) = do
-      elAttr "span" [("class","role")] $ text "client"
+      elAttr "span" [("class","role")] $ text "taker"
       elAttr "span" [("class","name")] $ text $ pack p
 
   showPart (EGiver (Business p)) = do
-      elAttr "span" [("class","role")] $ text "business"
+      elAttr "span" [("class","role")] $ text "giver"
       elAttr "span" [("class","name")] $ text $ pack p
 
   showChat (ETaker (RChat p)) = do
-      elAttr "span" [("class","role")] $ text "client"
-      elAttr "span" [("class","name")] $ text $ pack p
+      elAttr "span" [("class","role")] $ text "taker"
+      elAttr "span" [("class","message")] $ text $ pack p
 
   showChat (EGiver (RChat p)) = do
-      elAttr "span" [("class","role")] $ text "business"
-      elAttr "span" [("class","name")] $ text $ pack p
+      elAttr "span" [("class","role")] $ text "giver"
+      elAttr "span" [("class","message")] $ text $ pack p
 
 ihome, iworkshop ::( MonadReader (DS Bool) m, MS m) => m (ES ())
 ihome = icon ["home","3x"] "home"

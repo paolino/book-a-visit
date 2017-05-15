@@ -29,6 +29,7 @@ import Data.List
 import Data.Ord
 import Control.Arrow
 import Constraints
+import Data.Maybe
 
 -- | Typed index for a 'Transition' in a 'World'
 newtype Idx (s::Phase) (u :: Presence Role)  = Idx Integer deriving (Eq, Ord, Show)
@@ -118,6 +119,11 @@ involved (ETaker u) (EGiver s) = s ^? acceptance . _Just . accepter == Just u
 involved (EGiver u) (EGiver s) = s ^. proposal . proponent == u
 involved (EGiver u) (ETaker s) = s ^? acceptance . _Just . accepter == Just u
 
+anyPart :: Roled Summary a -> [Roled Part a]
+anyPart (EGiver s) = catMaybes [Just . EGiver $ s ^. proposal . proponent, fmap ETaker $ s ^? acceptance . _Just . accepter]
+anyPart (ETaker s) = catMaybes [Just . ETaker $  s ^. proposal . proponent, fmap EGiver $ s ^? acceptance . _Just . accepter]
+
+
 checkInvolved u t = case involved u (summary t) of
     False -> Just NotAllowed
     True -> Nothing
@@ -194,6 +200,12 @@ data Box a  where
     TTaker :: Idx s (Present Taker) -> Transaction s (Present Taker)  a -> Box a
     TGiver :: Idx s (Present Giver) -> Transaction s (Present Giver)  a -> Box a
     TAbsent :: Idx s Absent -> Transaction s Absent a -> Box a
+
+-- | Extract an s and p independent value from a 'Box'
+throughBox :: (forall s p . SummaryC p a => Transaction s p a -> b) -> Box a -> b
+throughBox f (TTaker _ x) = f x
+throughBox f (TGiver _ x) = f x
+throughBox f (TAbsent _ x) = f x
 
 -- | a set of transactions, ordered by time
 type State a = [Box a]

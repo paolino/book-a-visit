@@ -54,7 +54,40 @@ import UI.Constraints
 import UI.ValueInput
 import Control.Monad.Reader
 import UI.Constraints
+import Constraints
 import HList
+
+aborting 
+    :: ()
+    => (MS m, MonadReader (DS r) m, In Bool r)
+    => IconsU m Taker a
+    => IconsU m Giver a
+    => Eqs Taker a
+    => Eqs Giver a
+    => Eqs u a
+    => IconsU m u a
+    => Show (Slot a)
+    => Bargain a ~ String
+    => Step 'OtherT u a
+    => Idx 'ProposalT ('Present u)
+    -> ProposalData u a
+    -> Part u a
+    -> World a
+    -> m (Event Spider (World a))
+
+aborting i p u w = check (p ^. proponent == u) . divClass "record abort" $ do
+    el "ul" $ do 
+      el "li" $ do
+        elAttr "span" [("class","field")] $ text "when"
+        divClass "timeshow" $ text $ pack $ show $ p ^. slot
+      el "li" $ do
+          elAttr "span" [("class","field")] $ text "where"
+          divClass "placeshow" $ getIcon $ p ^. zone
+      el "li" $ do
+        elAttr "span" [("class","field")] $ text "what"
+        divClass "bargainshow" $ text $ pack $ p ^. bargain
+    abortDriver (step (Abort i) u w) 
+
 
 abortWidget 
   ::  forall r m a e . ()
@@ -105,6 +138,44 @@ abortDriver step = do
 ----------------------------------------------------------------
 ----------------------------------------------------------------
 
+accepting
+    :: ()
+    => (MS m, MonadReader (DS r) m, In Bool r)
+    => Reflexive u
+    => Eqs u a
+    => IconsU m (Opponent u) a
+    => IconsU m u a
+    => Show (Slot a)
+    => Bargain a ~ String
+    => Step 'OtherT (Opponent u) a
+    => ShowPart a
+    => Valid (Zone u a) (Place (Opponent u) a)
+    => Idx 'ProposalT ('Present u)
+
+    -> ProposalData u a
+    -> Part (Opponent u) a
+    -> World a
+    -> Transaction ProposalT (Present u) a
+    -> (Part u a -> Roled Part a)
+    -> m (Event Spider (World a))
+
+
+accepting i p u w x e = divClass "record accept" $ do
+    el "ul" $ do 
+      el "li" $ do
+        elAttr "span" [("class","field")] $ text "when"
+        divClass "timeshow" $ text $ pack $ show $ p ^. slot
+      el "li" $ do
+          elAttr "span" [("class","field")] $ text "where"
+          divClass "placeshow" $ getIcon $ p ^. zone
+      el "li" $ do
+        elAttr "span" [("class","field")] $ text "what"
+        divClass "bargainshow" $ text $ pack $ p ^. bargain
+      el "li" $ do
+        elAttr "span" [("class","field")] $ text "proponent"
+        divClass "opponent" $ showPart $ e (p ^. proponent)
+      acceptDriver (\ch -> step (Appointment i ch)  u w) x
+
 
 
 acceptWidget 
@@ -123,28 +194,32 @@ acceptWidget _ _ Iconified  = do
   return $ wire (LeftG :=> Disclosed <$ b)
 
 
-acceptWidget  step (Proposal d) Disclosed = do
-  let f :: Maybe e -> m (Cable (EitherG () (Maybe (Place (Opponent u) a))))
-      f Nothing = do
-          e <- fmap updated . divClass "radiochecks" $ radioChecks $ filter (valid $ d ^. zone) [minBound .. maxBound]
-          return $ wire (RightG :=> e)
-      f (Just e) = do
-        divClass "error" $ text $ pack $ show e
-        (wire . (LeftG :=>)) <$> button "got it"
-  rec   let
-            eew = step <$> fmapMaybe id sel
-            sel = pick RightG es
-            cm = leftmost [Just <$> lefting eew,Nothing <$ pick LeftG es] --ES
-        es <- domMorph f m
-        m <- holdDyn Nothing cm
+acceptWidget  step (Proposal d) Disclosed = el "li" $ do
+  elAttr "span" [("class","question")] $ text "choose a place"
+  divClass "placepick" $ do
+      let rs = filter (valid $ d ^. zone) [minBound .. maxBound] 
+      let f :: Maybe e -> m (Cable (EitherG () (Maybe (Place (Opponent u) a))))
+          f Nothing = do
+                e <- fmap updated . divClass "radiochecks" $ radioChecks $ rs
+                return $ wire (RightG :=> e)
+          f (Just e) = do
+            divClass "error" $ text $ pack $ show e
+            (wire . (LeftG :=>)) <$> button "got it"
+      
+      rec   let
+                eew = step <$> fmapMaybe id sel
+                sel = pick RightG es
+                cm = leftmost [Just <$> lefting eew,Nothing <$ pick LeftG es] --ES
+            es <- domMorph f m
+            m <- holdDyn Nothing cm
 
-  selD <- holdDyn False (maybe False (const True) <$> sel)
-  (y,n) <- yesno selD
-  eewD <- holdDyn Nothing (Just  <$> righting eew)
-  return $ merge [
-    RightG :=> fmapMaybe id (eewD `tagPromptlyDyn` y)
-    , LeftG :=> Iconified <$ n --
-    ]
+      selD <- holdDyn False (maybe False (const True) <$> sel)
+      (y,n) <- yesno selD
+      eewD <- holdDyn Nothing (Just  <$> righting eew)
+      return $ merge [
+        RightG :=> fmapMaybe id (eewD `tagPromptlyDyn` y)
+        , LeftG :=> Iconified <$ n --
+        ]
 
 acceptDriver 
   :: ()
