@@ -123,25 +123,6 @@ righting e = (\(Right x) -> x) <$> ffilter isRight e
 lefting e = (\(Left x) -> x) <$> ffilter isLeft e
 ----------------------------------------
 
-holdList
-  :: (MonadFix m, MonadHold t m, Ord k, DomBuilder t m,
-      PostBuild t m) =>
-     [(k, a)]
-     -> Event t (k, Maybe a)
-     -> (k -> Behavior t a -> m (Event t a))
-     -> m (Dynamic t [(k, a)])
-
-holdList xs c f = do
-    let     parse bm (k,Nothing) = M.delete k bm
-            parse bm (k,Just s) = M.insert k s bm
-    rec     e <- listViewWithKey m (\i d -> f i (current d)) 
-            let bm = current m
-            m <- holdDyn (M.fromList xs) $ leftmost [
-                attachWith (flip M.union) bm e
-                , attachWith parse bm c
-                ]
-
-
 
 class HasInput m a where
   getInput :: m (DS (Maybe a))

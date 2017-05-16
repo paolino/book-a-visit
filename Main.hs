@@ -78,7 +78,7 @@ rollable b w = let
         return $ pick RightG e
          
 
-
+fromSingleton = fst . fromJust . M.minView
 
 main = mainWidget $ do
     t <- divClass "info" $ runReaderT (icon ["question","2x"] "info") (constDyn False)
@@ -88,10 +88,15 @@ main = mainWidget $ do
 
       let f (Nothing,w) = divClass "nologin" (divClass "splash" $ text "Book a Visit") >> return never
           f (Just u,w) = divClass "yeslogin" $ do
-                            wo <- proposalDriver u w
-                            wt <- leftmost <$> mapM (\x -> rollable x $ transaction u x w) (state w)
-                            return $ leftmost [wo,wt]
+                            rec     wo <- proposalDriver u w
+                                    
+                                    wt :: ES (World S) <- 
+                                        fmap  (fmap fromSingleton . switch . current . fmap mergeMap) . listWithKey ds $ \_ d ->
+                                            (dyn . fmap (uncurry $ transaction u) $ d) >>=  fmap switch . hold never
+                                    dw <- holdDyn w $ leftmost [wo,wt]
 
+                                    let ds = fmap (\w -> M.fromList $ [(i,(s,w)) | (i,s) <- zip [1..] $ state w]) dw
+                            return $ updated dw 
       rec   w :: DS (World S) <- holdDyn mempty dw
             dw <- domMorph f $ (,) <$> u <*> w
 
