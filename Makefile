@@ -10,7 +10,7 @@ style:
 	cp book-a-visit.jsexe/style.css .
 
 compress:
-	closure-compiler -O ADVANCED  book-a-visit.jsexe/all.js > book-a-visit.jsexe/all.min.js
+	closure-compiler -O ADVANCED  --externs book-a-visit.jsexe/all.js.externs book-a-visit.jsexe/all.js > book-a-visit.jsexe/all.min.js
 	cp index.min.html book-a-visit.jsexe/index.html
 
 upload:

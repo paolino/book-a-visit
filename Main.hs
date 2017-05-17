@@ -63,10 +63,10 @@ import Constraints
 
 data Rolled = Rolled | UnRolled
 
-rollable b w = let
+rollable s w = let
     f Rolled = divClass "rolled" $ do
         r <- divClass "rolling" $ (UnRolled <$) <$> floater (icon ["arrow-down","3x"] "unroll")
-        divClass "slot" $ text . pack . show $ throughBox getSlot b
+        divClass "slot" $ text . pack . show $ s
         return $ wire' LeftG r
     f UnRolled = divClass "unrolled" $ do
         r <- divClass "rolling" $ (Rolled <$) <$> floater (icon ["arrow-up","3x"] "rollup")
@@ -99,7 +99,7 @@ main = mainWidget $ do
                 (mempty,mempty) 
                 cwe
             let (dw,ddw) = splitDynPure dwaw
-
+                
             let f (_,Nothing) = divClass "nologin" (divClass "splash" $ text "Book a Visit") >> return never
                 f (w,Just u) = divClass "yeslogin" $ do
                     rec     wo :: ES (WKey S,World S) <- domMorph (proposalDriver u) dw
@@ -107,9 +107,7 @@ main = mainWidget $ do
                             wt :: ES (WKey S, World S -> Ctx OtherT S (World S)) <- 
                                 fmap  (fmap fromSingleton . switch . current . fmap mergeMap) . 
                                     listHoldWithKey (toState w) (updated ddw) $ \i b -> onlyInvolved u b $ do
-                                        -- let i Iconified = 
-                                        -- id <- holdDyn Iconified ie
-                                        ((,) i <$>) <$> transaction u b
+                                        ((,) i <$>) <$> rollable (fst i) (transaction u b)
 
                     return $ leftmost [wo,attachWith (\w (i,f) -> (i,fromRight $ f w)) (current dw) wt]
             cu <- holdDyn (mempty,Nothing) $ attach (current dw) $ updated du

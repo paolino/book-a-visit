@@ -88,3 +88,8 @@ transaction me@(ETaker u) (TAbsent i x@(Releasing p)) = chatter i x me u ChatRel
 transaction me@(ETaker u) (TAbsent i x@(ChattingReleasing p _)) = chatter i x me u ChatReleasing
 
 
+transaction _ (TAbsent i x@(Aborted p)) = text "not implemented" >> return never
+transaction _ (TAbsent i x@(Dropped p)) = text "not implemented">> return never
+transaction _ (TAbsent i x@(Failure p)) = text "not implemented">> return never
+transaction _ (TAbsent i x@(Successed p f)) = text "not implemented">> return never
+
