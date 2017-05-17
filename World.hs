@@ -30,9 +30,11 @@ import Data.Ord
 import Control.Arrow
 import Constraints
 import Data.Maybe
+import Data.Tuple
+import Control.Applicative
 
 -- | Typed index for a 'Transition' in a 'World'
-newtype Idx (s::Phase) (u :: Presence Role)  = Idx Integer deriving (Eq, Ord, Show)
+newtype Idx (s::Phase) (u :: Presence Role)  = Idx {fromIdx :: Integer} deriving (Eq, Ord, Show)
 
 -- | A 'Map' from an 'Idx' to a 'Transaction'
 type MapW (s :: Phase) (u :: Presence Role) a = Map (Idx s u ) (Transaction s u a)
@@ -86,6 +88,9 @@ data Protocol (r :: ProtocolT) (u :: Role) a where
   Fail          :: Idx ServingT Absent                        -> Protocol OtherT Giver a
   -- | Give a final 'Feedback'
   Success       :: Idx ReleasingT Absent -> Feedback a        -> Protocol OtherT Taker a
+-- | Presence Role disambiguity and Status hiding
+
+
 
 
 -- | Stepping a 'World' with a 'Protocol' and an author ('Part')
@@ -115,9 +120,13 @@ class Valid a b where
 -- | check a 'Part' is inside the 'Summary' of a 'Transaction'  
 involved :: (Eqs Taker a, Eqs Giver a) => Roled Part a -> Roled Summary a -> Bool
 involved (ETaker u) (ETaker s) = s ^. proposal . proponent == u
-involved (ETaker u) (EGiver s) = s ^? acceptance . _Just . accepter == Just u
+involved (ETaker u) (EGiver s) = case s ^. acceptance of
+    Just a -> a ^. accepter == u
+    Nothing -> True
 involved (EGiver u) (EGiver s) = s ^. proposal . proponent == u
-involved (EGiver u) (ETaker s) = s ^? acceptance . _Just . accepter == Just u
+involved (EGiver u) (ETaker s) = case s ^. acceptance of
+    Just a -> a ^. accepter == u
+    Nothing -> True
 
 anyPart :: Roled Summary a -> [Roled Part a]
 anyPart (EGiver s) = catMaybes [Just . EGiver $ s ^. proposal . proponent, fmap ETaker $ s ^? acceptance . _Just . accepter]
@@ -190,16 +199,12 @@ move l1 l2 j w c f =     case w ^. l2 . at (Idx j) of
       Just x -> case c x of
                   Nothing -> Right $ (l1 . at (Idx j) .~ Just (f x))  . (l2 . at (Idx j) .~ Nothing) $ w
                   Just e ->  Left e
-
--- | shortcut for the 'Transaction' 'Slot'
-getSlot :: (SummaryC p a) =>  Transaction s p a -> Slot a
-getSlot x = view (proposal . slot) `through` summary x
-
--- | Presence Role disambiguity and Status hiding
 data Box a  where
     TTaker :: Idx s (Present Taker) -> Transaction s (Present Taker)  a -> Box a
     TGiver :: Idx s (Present Giver) -> Transaction s (Present Giver)  a -> Box a
     TAbsent :: Idx s Absent -> Transaction s Absent a -> Box a
+    
+deriving instance Showers a => Show (Box a)
 
 -- | Extract an s and p independent value from a 'Box'
 throughBox :: (forall s p . SummaryC p a => Transaction s p a -> b) -> Box a -> b
@@ -207,23 +212,80 @@ throughBox f (TTaker _ x) = f x
 throughBox f (TGiver _ x) = f x
 throughBox f (TAbsent _ x) = f x
 
+-- | shortcut for the 'Transaction' 'Slot'
+getSlot :: (SummaryC p a) =>  Transaction s p a -> Slot a
+getSlot x = view (proposal . slot) `through` summary x
+
+-- | get the ordering key (time + idx)
+getOrd :: SummaryC p a => (Idx s p , Transaction s p a) -> (Slot a, Integer)
+getOrd = (getSlot *** fromIdx) . swap
+
 -- | a set of transactions, ordered by time
-type State a = [Box a]
+type State a = Map (Slot a, Integer) (Box a)
 
 -- | create a 'State' of one 'World' 
-state :: Ord (Slot a) => World a -> State a
-state w = map snd . sortBy (comparing fst) . concat  $ 
-         [     map (getSlot . snd &&& uncurry TTaker) . M.assocs $ w ^. proposalTaker 
-         ,     map (getSlot . snd &&& uncurry TGiver) . M.assocs $ w ^. proposalGiver
-         ,     map (getSlot . snd &&& uncurry TAbsent) . M.assocs $ w ^. waiting
-         ,     map (getSlot . snd &&& uncurry TAbsent)  . M.assocs $ w ^. serving
-         ,     map (getSlot . snd &&& uncurry TAbsent) . M.assocs $ w ^. final
+toState :: Ord (Slot a) => World a -> State a
+toState w = M.fromList . concat  $ 
+         [     map (getOrd  &&& uncurry TTaker) . M.assocs $ w ^. proposalTaker 
+         ,     map (getOrd  &&& uncurry TGiver) . M.assocs $ w ^. proposalGiver
+         ,     map (getOrd  &&& uncurry TAbsent) . M.assocs $ w ^. waiting
+         ,     map (getOrd  &&& uncurry TAbsent)  . M.assocs $ w ^. serving
+         ,     map (getOrd  &&& uncurry TAbsent)  . M.assocs $ w ^. releasing
+         ,     map (getOrd  &&& uncurry TAbsent) . M.assocs $ w ^. final
          ] 
 
 
+fromState :: State a -> World a
+fromState = foldr f mempty . M.elems where
+    f :: Box a -> World a -> World a
+    f (TTaker i x@(Proposal _)) = proposalTaker %~ M.insert i x 
+    f (TGiver i x@(Proposal _)) = proposalGiver %~ M.insert i x 
+    f (TAbsent i x@(Waiting _)) = waiting %~ M.insert i x
+    f (TAbsent i x@(ChattingWaiting _ _)) = waiting %~ M.insert i x
 
+    f (TAbsent i x@(Serving _)) = serving %~ M.insert i x
+    f (TAbsent i x@(ChattingServing _ _)) = serving %~ M.insert i x
+    f (TAbsent i x@(Releasing _)) = releasing %~ M.insert i x
+    f (TAbsent i x@(ChattingReleasing _ _)) = releasing %~ M.insert i x
+
+    f (TAbsent i x@(Failure _)) = final %~ M.insert i x
+    f (TAbsent i x@(Successed _ _)) = final %~ M.insert i x
+    f (TAbsent i x@(Dropped _)) = final %~ M.insert i x
+    f (TAbsent i x@(Aborted _)) = final %~ M.insert i x
+    f (TAbsent i _) = error "bad state"
+
+type WKey a = (Slot a,Integer)
+
+findBox :: Integer -> World a -> Maybe (Box a)
+
+findBox i (World g t w s r f) 
+    =   TGiver (Idx i) <$> M.lookup (Idx i) g 
+    <|> TTaker (Idx i) <$> M.lookup (Idx i) t
+    <|> TAbsent (Idx i) <$> M.lookup (Idx i) w 
+    <|> TAbsent (Idx i) <$> M.lookup (Idx i) s 
+    <|> TAbsent (Idx i) <$> M.lookup (Idx i) r 
+    <|> TAbsent (Idx i) <$> M.lookup (Idx i) f
 
 {-
+diffOne b m o@(i,t) = case M.lookup i m of
+    Nothing -> Just (getOrd o, b i t)
+    Just t' -> case t == t' of
+        True -> Nothing
+        _ -> Just (getOrd o, b i t)
+
+diffLine :: (Idx s p -> Transaction s p a -> Box a) -> MapW s p a -> MapW s p a -> [((Slot a, Integer),Box a)]
+diffLine b m1 m2 = catMaybes $ map (diffOne b m1) $ M.assocs m2
+
+
+stateDiff :: Ord (Slot a) => World a ->  World  a -> Map (Slot a, Integer) (Maybe (Box a))
+stateDiff w1 w2 = fmap Just . M.fromList . concat $ [
+    diffLine (w2 ^. proposalGiver) (w1 ^. proposalGiver),
+    diffLine (w2 ^. proposalTaker) (w1 ^. proposalTaker),
+    diffLine  (w2 ^. waiting) (w1 ^. waiting),
+    diffLine  (w2 ^. serving) (w1 ^. serving),
+    diffLine  (w2 ^. releasing) (w1 ^. releasing),
+    diffLine  (w2 ^. final) (w1 ^. final)]
+    
 
 
 -}

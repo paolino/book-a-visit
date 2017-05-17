@@ -72,10 +72,9 @@ aborting
     => Idx 'ProposalT ('Present u)
     -> ProposalData u a
     -> Part u a
-    -> World a
-    -> m (Event Spider (World a))
+    -> m (ES (World a -> Ctx OtherT a (World a)))
 
-aborting i p u w = check (p ^. proponent == u) . divClass "record abort" $ do
+aborting i p u = check (p ^. proponent == u) . divClass "record abort" $ do
     el "ul" $ do 
       el "li" $ do
         elAttr "span" [("class","field")] $ text "when"
@@ -86,51 +85,39 @@ aborting i p u w = check (p ^. proponent == u) . divClass "record abort" $ do
       el "li" $ do
         elAttr "span" [("class","field")] $ text "what"
         divClass "bargainshow" $ text $ pack $ p ^. bargain
-    abortDriver (step (Abort i) u w) 
+    abortDriver (step (Abort i) u) 
 
 
 abortWidget 
-  ::  forall r m a e . ()
-  => (In Bool r, MonadReader (DS r) m, MS m) 
-  => Show e
-  => Either e (World a)
-  -> Iconified
-  -> m (Cable (EitherG Iconified (World a)))
+  ::  forall  m r  . (MS m)
+  => (MS m, MonadReader (DS r) m, In Bool r)
+  => Iconified
+  -> m (Cable (EitherG Iconified ()))
 
-abortWidget _ Iconified  = do
+abortWidget Iconified  = do
   b <- floater $  (icon ["close","3x"] "forget")
   return $ wire (LeftG :=> Disclosed <$ b)
 
-abortWidget w Disclosed = do
-  let f Nothing = el "ul" $ do
+abortWidget Disclosed = do
+    p <- el "ul" $ do
           divClass "modal" $ text "really want to abort the proposal?"
           (b,n) <- yesno (constDyn True)
-          return $ wire' RightG $ leftmost [True <$ b ,False <$ n]
-      f (Just e) = do
-        divClass "error" $ text $ pack $ show e
-        wire' LeftG <$>  icon ["check","3x"] "got it"
-  rec   let
-            w' = w <$ ffilter id (pick RightG zm)
-            cm = leftmost [Just <$> lefting w',Nothing <$ pick LeftG zm]
-        zm <- domMorph f m
-        m <- holdDyn Nothing cm
-
-  return $ merge [LeftG :=> Iconified <$ ffilter not (pick RightG zm), RightG :=> righting w']
+          return $ leftmost [True <$ b ,False <$ n]
+    return $ merge [RightG :=> () <$ ffilter id p , LeftG :=> Iconified <$ ffilter not p]
 
 abortDriver 
   :: ()
-  => Show e
-  => (In Bool r, MonadReader (DS r) m,  MS m) 
-  => IconsU m Taker a
-  => IconsU m Giver a
-  =>  Either e (World a)
-  -> m (ES (World a))
+    => (In Bool r, MonadReader (DS r) m,  MS m) 
+--  => IconsU m Taker a
+--  => IconsU m Giver a
+  => a
+  ->  m (ES a)
 
-abortDriver step = do 
-          rec   ws <- domMorph (abortWidget step) s
+abortDriver x = do 
+          rec   ws <- domMorph abortWidget s
                 s <- holdDyn Iconified (pick LeftG ws)
 
-          return $ pick RightG ws
+          return $ x <$ pick RightG ws
 
 ----------------------------------------------------------------
 ---------------- Appointment ----------------------------------
@@ -151,16 +138,14 @@ accepting
     => ShowPart a
     => Valid (Zone u a) (Place (Opponent u) a)
     => Idx 'ProposalT ('Present u)
-
     -> ProposalData u a
     -> Part (Opponent u) a
-    -> World a
     -> Transaction ProposalT (Present u) a
     -> (Part u a -> Roled Part a)
-    -> m (Event Spider (World a))
+    -> m (ES (World a -> Ctx OtherT a (World a)))
 
 
-accepting i p u w x e = divClass "record accept" $ do
+accepting i p u x e = divClass "record accept" $ do
     el "ul" $ do 
       el "li" $ do
         elAttr "span" [("class","field")] $ text "when"
@@ -174,20 +159,19 @@ accepting i p u w x e = divClass "record accept" $ do
       el "li" $ do
         elAttr "span" [("class","field")] $ text "proponent"
         divClass "opponent" $ showPart $ e (p ^. proponent)
-      acceptDriver (\ch -> step (Appointment i ch)  u w) x
+      acceptDriver (\ch -> step (Appointment i ch)  u) x
 
 
 
 acceptWidget 
-  :: forall a r m e u. ()
+  :: forall a r m z u. ()
   => (In Bool r, MonadReader (DS r) m, MS m) 
   => IconsU m u a
-  => Show e
   => Valid (Zone u a) (Place (Opponent u) a)
-  => (Place (Opponent u) a -> Either e (World a))
+  => (Place (Opponent u) a -> z)
   -> Transaction ProposalT (Present u) a
   -> Iconified
-  -> m (Cable (EitherG Iconified (World a)))
+  -> m (Cable (EitherG Iconified z))
 
 acceptWidget _ _ Iconified  = do
   b <- floater (icon ["handshake-o","3x"] "accept")
@@ -198,39 +182,25 @@ acceptWidget  step (Proposal d) Disclosed = el "li" $ do
   elAttr "span" [("class","question")] $ text "choose a place"
   divClass "placepick" $ do
       let rs = filter (valid $ d ^. zone) [minBound .. maxBound] 
-      let f :: Maybe e -> m (Cable (EitherG () (Maybe (Place (Opponent u) a))))
-          f Nothing = do
-                e <- fmap updated . divClass "radiochecks" $ radioChecks $ rs
-                return $ wire (RightG :=> e)
-          f (Just e) = do
-            divClass "error" $ text $ pack $ show e
-            (wire . (LeftG :=>)) <$> button "got it"
-      
-      rec   let
-                eew = step <$> fmapMaybe id sel
-                sel = pick RightG es
-                cm = leftmost [Just <$> lefting eew,Nothing <$ pick LeftG es] --ES
-            es <- domMorph f m
-            m <- holdDyn Nothing cm
+      -- pd :: m (DS (Maybe (Place (Opponent u) a)))
+      pd <- divClass "radiochecks" $ radioChecks $ rs
 
-      selD <- holdDyn False (maybe False (const True) <$> sel)
-      (y,n) <- yesno selD
-      eewD <- holdDyn Nothing (Just  <$> righting eew)
+      (y,n) <- yesno $ maybe False (const True) <$> pd
+      
       return $ merge [
-        RightG :=> fmapMaybe id (eewD `tagPromptlyDyn` y)
+        RightG :=> fmapMaybe id ((fmap step <$>  pd) `tagPromptlyDyn` y)
         , LeftG :=> Iconified <$ n --
         ]
 
 acceptDriver 
   :: ()
-  => Show e
   => (In Bool r, MonadReader (DS r) m,  MS m) 
   => IconsU m u a
   => IconsU m (Opponent u) a
   => Valid (Zone u a) (Place (Opponent u) a)
-  =>  (Place (Opponent u) a -> Either e (World a))
+  =>  (Place (Opponent u) a -> z)
   -> Transaction ProposalT (Present u) a
-  -> m (ES (World a))
+  -> m (ES z)
 
 
 acceptDriver step u = do

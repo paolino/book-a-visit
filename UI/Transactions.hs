@@ -61,31 +61,30 @@ transaction
     => Valid (Zone Taker a) (Place Giver a)
     => Roled Part a  -- ^ author
     -> Box a  -- ^ transaction
-    -> World a 
-    -> m (ES (World a)) -- ^ World modification event
-transaction (ETaker u) (TTaker i x@(Proposal p)) w = aborting i p u w
+    -> m (ES (World a -> Ctx OtherT a (World a))) -- ^ World modification event
+transaction (ETaker u) (TTaker i x@(Proposal p)) = aborting i p u
 
-transaction (EGiver u) (TGiver i x@(Proposal p)) w = aborting i p u w
+transaction (EGiver u) (TGiver i x@(Proposal p)) = aborting i p u
 
-transaction (EGiver u) (TTaker i x@(Proposal p)) w =  accepting i p u w x ETaker
-transaction (ETaker u) (TGiver i x@(Proposal p)) w = accepting i p u w x EGiver
+transaction (EGiver u) (TTaker i x@(Proposal p)) =  accepting i p u x ETaker
+transaction (ETaker u) (TGiver i x@(Proposal p)) = accepting i p u x EGiver
 
-transaction me@(EGiver u) (TAbsent i x@(Waiting p)) w = chatter i x me u ChatWaiting w 
-transaction me@(EGiver u) (TAbsent i x@(ChattingWaiting p _)) w = chatter i x me u ChatWaiting w
+transaction me@(EGiver u) (TAbsent i x@(Waiting p)) = chatter i x me u ChatWaiting 
+transaction me@(EGiver u) (TAbsent i x@(ChattingWaiting p _)) = chatter i x me u ChatWaiting
 
-transaction me@(ETaker u) (TAbsent i x@(Waiting p)) w = chatter i x me u ChatWaiting w 
-transaction me@(ETaker u) (TAbsent i x@(ChattingWaiting p _)) w = chatter i x me u ChatWaiting w
+transaction me@(ETaker u) (TAbsent i x@(Waiting p)) = chatter i x me u ChatWaiting 
+transaction me@(ETaker u) (TAbsent i x@(ChattingWaiting p _)) = chatter i x me u ChatWaiting
 
-transaction me@(EGiver u) (TAbsent i x@(Serving p)) w = chatter i x me u ChatServing w 
-transaction me@(EGiver u) (TAbsent i x@(ChattingServing p _)) w = chatter i x me u ChatServing w
+transaction me@(EGiver u) (TAbsent i x@(Serving p)) = chatter i x me u ChatServing 
+transaction me@(EGiver u) (TAbsent i x@(ChattingServing p _)) = chatter i x me u ChatServing
 
-transaction me@(ETaker u) (TAbsent i x@(Serving p)) w = chatter i x me u ChatServing w 
-transaction me@(ETaker u) (TAbsent i x@(ChattingServing p _)) w = chatter i x me u ChatServing w
+transaction me@(ETaker u) (TAbsent i x@(Serving p)) = chatter i x me u ChatServing 
+transaction me@(ETaker u) (TAbsent i x@(ChattingServing p _)) = chatter i x me u ChatServing
 
-transaction me@(EGiver u) (TAbsent i x@(Releasing p)) w = chatter i x me u ChatReleasing w 
-transaction me@(EGiver u) (TAbsent i x@(ChattingReleasing p _)) w = chatter i x me u ChatReleasing w
+transaction me@(EGiver u) (TAbsent i x@(Releasing p)) = chatter i x me u ChatReleasing 
+transaction me@(EGiver u) (TAbsent i x@(ChattingReleasing p _)) = chatter i x me u ChatReleasing
 
-transaction me@(ETaker u) (TAbsent i x@(Releasing p)) w = chatter i x me u ChatReleasing w 
-transaction me@(ETaker u) (TAbsent i x@(ChattingReleasing p _)) w = chatter i x me u ChatReleasing w
+transaction me@(ETaker u) (TAbsent i x@(Releasing p)) = chatter i x me u ChatReleasing 
+transaction me@(ETaker u) (TAbsent i x@(ChattingReleasing p _)) = chatter i x me u ChatReleasing
 
 

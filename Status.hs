@@ -13,7 +13,7 @@
 {-# language ConstraintKinds #-}
 {-# language PolyKinds #-}
 {-# language TypeInType #-}
-
+{-# language PartialTypeSignatures #-} 
 module Status where
 
 import Data.Bifunctor
@@ -97,7 +97,7 @@ data ProposalData u a = ProposalData {
   _proponent :: Part u a,
   _zone :: Zone u a,
   _slot :: Slot a
-  }
+  } 
 
 makeLenses ''ProposalData
 
@@ -108,7 +108,8 @@ deriving instance (Classes Show a, ClassesU Show u a) => Show (AcceptanceData u 
 data AcceptanceData u a = AcceptanceData {
   _accepter :: Part u a,
   _place :: Place u a
-  }
+  } 
+  
 
 
 makeLenses ''AcceptanceData
@@ -165,7 +166,6 @@ data Transaction s (u :: Presence Role) (a :: Type) where
 
   -- | No feedback in a decent time
   ExpiredReleasing :: Transaction ReleasingT Absent a  -> Transaction FinalT Absent a
-
 
 
 deriving instance (UnPresent u a) => Show (Transaction s u a)

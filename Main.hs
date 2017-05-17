@@ -77,34 +77,50 @@ rollable b w = let
                 e <- domMorph f s
         return $ pick RightG e
          
-
+fromRight (Right x ) = x
 fromSingleton = fst . fromJust . M.minView
+-- listHoldWithKey :: forall t m k v a. (Ord k, DomBuilder t m, MonadHold t m) => Map k v -> Event t (Map k (Maybe v)) -> (k -> v -> m a) -> m (Dynamic t (Map k a))
+-- worldDiff exw neww = (neww, stateDiff exw neww)
+--
+onlyInvolved :: (MS m,Eq (Part 'Taker a),Eq (Part Giver a)) => Roled Part a ->  Box a -> m (ES b) -> m (ES b)
+onlyInvolved r b a = case throughBox (involved r . summary) b of
+        True -> a
+        _ -> return never
 
 main = mainWidget $ do
     t <- divClass "info" $ runReaderT (icon ["question","2x"] "info") (constDyn False)
     d <- foldDyn (const not) False t
     flip runReaderT d $ do
-      u <- fakeLogin
+        du <- fakeLogin
 
-      let f (Nothing,w) = divClass "nologin" (divClass "splash" $ text "Book a Visit") >> return never
-          f (Just u,w) = divClass "yeslogin" $ do
-                            rec     wo <- proposalDriver u w
-                                    
-                                    wt :: ES (World S) <- 
-                                        fmap  (fmap fromSingleton . switch . current . fmap mergeMap) . listWithKey ds $ \_ d ->
-                                            (dyn . fmap (uncurry $ transaction u) $ d) >>=  fmap switch . hold never
-                                    dw <- holdDyn w $ leftmost [wo,wt]
 
-                                    let ds = fmap (\w -> M.fromList $ [(i,(s,w)) | (i,s) <- zip [1..] $ state w]) dw
-                            return $ updated dw 
-      rec   w :: DS (World S) <- holdDyn mempty dw
-            dw <- domMorph f $ (,) <$> u <*> w
+        rec dwaw  <- foldDyn 
+                (\(i,new) (old,_) -> (new, M.singleton i $ findBox (snd i) new))
+                (mempty,mempty) 
+                cwe
+            let (dw,ddw) = splitDynPure dwaw
 
-      divClass "footer" . divClass "footer-fields" $ do 
+            let f (_,Nothing) = divClass "nologin" (divClass "splash" $ text "Book a Visit") >> return never
+                f (w,Just u) = divClass "yeslogin" $ do
+                    rec     wo :: ES (WKey S,World S) <- domMorph (proposalDriver u) dw
+                            
+                            wt :: ES (WKey S, World S -> Ctx OtherT S (World S)) <- 
+                                fmap  (fmap fromSingleton . switch . current . fmap mergeMap) . 
+                                    listHoldWithKey (toState w) (updated ddw) $ \i b -> onlyInvolved u b $ do
+                                        -- let i Iconified = 
+                                        -- id <- holdDyn Iconified ie
+                                        ((,) i <$>) <$> transaction u b
+
+                    return $ leftmost [wo,attachWith (\w (i,f) -> (i,fromRight $ f w)) (current dw) wt]
+            cu <- holdDyn (mempty,Nothing) $ attach (current dw) $ updated du
+            cwe :: ES (WKey S, World S) <- domMorph f $ cu 
+
+        performEvent_ $ (\e -> liftIO (putStrLn $ "number of updates:" ++ show (M.size e))) <$> updated ddw
+        divClass "footer" . divClass "footer-fields" $ do 
         
-        divClass "copyright" $ text "Paolo Veronelli ©"
-        divClass "code-link" $ elAttr "a" [("href","https://github.com/paolino/book-a-visit")] $ text "code repository"
-        divClass "code-api" $ elAttr "a" [("href","http://lambdasistemi.net/public/book-a-visit.jsexe/api")] $ text "api"
+            divClass "copyright" $ text "Paolo Veronelli ©"
+            divClass "code-link" $ elAttr "a" [("href","https://github.com/paolino/book-a-visit")] $ text "code repository"
+            divClass "code-api" $ elAttr "a" [("href","http://lambdasistemi.net/public/book-a-visit.jsexe/api")] $ text "api"
 
-      return ()
+        return ()
 
