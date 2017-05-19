@@ -122,11 +122,15 @@ involved :: (Eqs Taker a, Eqs Giver a) => Roled Part a -> Roled Summary a -> Boo
 involved (ETaker u) (ETaker s) = s ^. proposal . proponent == u
 involved (ETaker u) (EGiver s) = case s ^. acceptance of
     Just a -> a ^. accepter == u
-    Nothing -> True
+    Nothing -> case s ^. feedback  of
+        Nothing -> True
+        _ -> False
 involved (EGiver u) (EGiver s) = s ^. proposal . proponent == u
 involved (EGiver u) (ETaker s) = case s ^. acceptance of
     Just a -> a ^. accepter == u
-    Nothing -> True
+    Nothing -> case s ^. feedback  of
+        Nothing -> True
+        _ -> False
 
 anyPart :: Roled Summary a -> [Roled Part a]
 anyPart (EGiver s) = catMaybes [Just . EGiver $ s ^. proposal . proponent, fmap ETaker $ s ^? acceptance . _Just . accepter]
@@ -203,7 +207,8 @@ data Box a  where
     TTaker :: Idx s (Present Taker) -> Transaction s (Present Taker)  a -> Box a
     TGiver :: Idx s (Present Giver) -> Transaction s (Present Giver)  a -> Box a
     TAbsent :: Idx s Absent -> Transaction s Absent a -> Box a
-    
+
+
 deriving instance Showers a => Show (Box a)
 
 -- | Extract an s and p independent value from a 'Box'

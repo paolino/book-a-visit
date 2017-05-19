@@ -45,6 +45,7 @@ import Constraints
 import Data.Maybe
 import UI.Chatting
 
+data Color = Abortable | Acceptable | WaitingColor | ServingColor | ReleasingColor | GoneColor deriving Show
 
 transaction 
     :: (MS m, MonadReader (DS r) m , In Bool r)
@@ -61,35 +62,35 @@ transaction
     => Valid (Zone Taker a) (Place Giver a)
     => Roled Part a  -- ^ author
     -> Box a  -- ^ transaction
-    -> m (ES (World a -> Ctx OtherT a (World a))) -- ^ World modification event
-transaction (ETaker u) (TTaker i x@(Proposal p)) = aborting i p u
+    -> (Color, m(ES (World a -> Ctx OtherT a (World a)))) -- ^ World modification event
+transaction (ETaker u) (TTaker i x@(Proposal p)) = (Abortable, aborting i p u)
 
-transaction (EGiver u) (TGiver i x@(Proposal p)) = aborting i p u
+transaction (EGiver u) (TGiver i x@(Proposal p)) = (Abortable, aborting i p u)
 
-transaction (EGiver u) (TTaker i x@(Proposal p)) =  accepting i p u x ETaker
-transaction (ETaker u) (TGiver i x@(Proposal p)) = accepting i p u x EGiver
+transaction (EGiver u) (TTaker i x@(Proposal p)) =  (Acceptable, accepting i p u x ETaker)
+transaction (ETaker u) (TGiver i x@(Proposal p)) = (Acceptable, accepting i p u x EGiver)
 
-transaction me@(EGiver u) (TAbsent i x@(Waiting p)) = chatter i x me u ChatWaiting 
-transaction me@(EGiver u) (TAbsent i x@(ChattingWaiting p _)) = chatter i x me u ChatWaiting
+transaction me@(EGiver u) (TAbsent i x@(Waiting p)) = (WaitingColor, chatter i x me u ChatWaiting )
+transaction me@(EGiver u) (TAbsent i x@(ChattingWaiting p _)) = (WaitingColor, chatter i x me u ChatWaiting)
 
-transaction me@(ETaker u) (TAbsent i x@(Waiting p)) = chatter i x me u ChatWaiting 
-transaction me@(ETaker u) (TAbsent i x@(ChattingWaiting p _)) = chatter i x me u ChatWaiting
+transaction me@(ETaker u) (TAbsent i x@(Waiting p)) = (WaitingColor, chatter i x me u ChatWaiting )
+transaction me@(ETaker u) (TAbsent i x@(ChattingWaiting p _)) = (WaitingColor, chatter i x me u ChatWaiting)
 
-transaction me@(EGiver u) (TAbsent i x@(Serving p)) = chatter i x me u ChatServing 
-transaction me@(EGiver u) (TAbsent i x@(ChattingServing p _)) = chatter i x me u ChatServing
+transaction me@(EGiver u) (TAbsent i x@(Serving p)) = (ServingColor, chatter i x me u ChatServing)
+transaction me@(EGiver u) (TAbsent i x@(ChattingServing p _)) = (ServingColor, chatter i x me u ChatServing)
 
-transaction me@(ETaker u) (TAbsent i x@(Serving p)) = chatter i x me u ChatServing 
-transaction me@(ETaker u) (TAbsent i x@(ChattingServing p _)) = chatter i x me u ChatServing
+transaction me@(ETaker u) (TAbsent i x@(Serving p)) = (ServingColor, chatter i x me u ChatServing)
+transaction me@(ETaker u) (TAbsent i x@(ChattingServing p _)) = (ServingColor, chatter i x me u ChatServing)
 
-transaction me@(EGiver u) (TAbsent i x@(Releasing p)) = chatter i x me u ChatReleasing 
-transaction me@(EGiver u) (TAbsent i x@(ChattingReleasing p _)) = chatter i x me u ChatReleasing
+transaction me@(EGiver u) (TAbsent i x@(Releasing p)) = (ReleasingColor, chatter i x me u ChatReleasing)
+transaction me@(EGiver u) (TAbsent i x@(ChattingReleasing p _)) = (ReleasingColor, chatter i x me u ChatReleasing)
 
-transaction me@(ETaker u) (TAbsent i x@(Releasing p)) = chatter i x me u ChatReleasing 
-transaction me@(ETaker u) (TAbsent i x@(ChattingReleasing p _)) = chatter i x me u ChatReleasing
+transaction me@(ETaker u) (TAbsent i x@(Releasing p)) = (ReleasingColor, chatter i x me u ChatReleasing)
+transaction me@(ETaker u) (TAbsent i x@(ChattingReleasing p _)) = (ReleasingColor, chatter i x me u ChatReleasing)
 
 
-transaction _ (TAbsent i x@(Aborted p)) = text "not implemented" >> return never
-transaction _ (TAbsent i x@(Dropped p)) = text "not implemented">> return never
-transaction _ (TAbsent i x@(Failure p)) = text "not implemented">> return never
-transaction _ (TAbsent i x@(Successed p f)) = text "not implemented">> return never
+transaction _ (TAbsent i x@(Aborted p)) = (GoneColor, text "not implemented" >> return never)
+transaction _ (TAbsent i x@(Dropped p)) = (GoneColor, text "not implemented">> return never)
+transaction _ (TAbsent i x@(Failure p)) = (GoneColor, text "not implemented">> return never)
+transaction _ (TAbsent i x@(Successed p f)) = (GoneColor, text "not implemented">> return never)
 

@@ -60,22 +60,23 @@ import UI.Transactions
 import Status
 import World
 import Constraints
+import Splash
 
 data Rolled = Rolled | UnRolled
 
-rollable s w = let
-    f Rolled = divClass "rolled" $ do
+rollable r s (c,w) = let
+    f Rolled = divClass ("rolled " <> pack (show c)) $ do
         r <- divClass "rolling" $ (UnRolled <$) <$> floater (icon ["arrow-down","3x"] "unroll")
         divClass "slot" $ text . pack . show $ s
         return $ wire' LeftG r
-    f UnRolled = divClass "unrolled" $ do
+    f UnRolled = divClass ("unrolled " <> pack (show c))$ do
         r <- divClass "rolling" $ (Rolled <$) <$> floater (icon ["arrow-up","3x"] "rollup")
         h <- divClass "transaction" $ w
         return $ merge [LeftG :=> r, RightG :=> h]
     in do
-        rec     s <- holdDyn Rolled (pick LeftG e)
+        rec     s <- holdDyn r (pick LeftG e)
                 e <- domMorph f s
-        return $ pick RightG e
+        return $ e
          
 fromRight (Right x ) = x
 fromSingleton = fst . fromJust . M.minView
@@ -94,31 +95,40 @@ main = mainWidget $ do
         du <- fakeLogin
 
 
-        rec dwaw  <- foldDyn 
-                (\(i,new) (old,_) -> (new, M.singleton i $ findBox (snd i) new))
-                (mempty,mempty) 
-                cwe
+        rec dwaw  <- holdDyn (mempty,Nothing) $ 
+                (\(i,new) -> (new, Just (i,findBox (snd i) new))) <$>
+                (pick RightG cwe)
             let (dw,ddw) = splitDynPure dwaw
-                
-            let f (_,Nothing) = divClass "nologin" (divClass "splash" $ text "Book a Visit") >> return never
-                f (w,Just u) = divClass "yeslogin" $ do
-                    rec     wo :: ES (WKey S,World S) <- domMorph (proposalDriver u) dw
+            icons <- foldDyn
+                (\(i,s) m -> M.insert i s m)
+                mempty
+                (pick LeftG cwe)
+            ddwi <- holdDyn mempty $ attachWith 
+                (\im t -> case t of
+                    Nothing -> mempty
+                    Just (i,b) -> M.singleton  i $ flip (,) (maybe Rolled id $ M.lookup i im) <$> b )
+                (current icons) 
+                (updated ddw)
+            let f (_ , (_,Nothing)) = divClass "nologin" splash >> return never
+                f (im,(w,Just u)) = divClass "yeslogin" $ do
+                    rec     wo  <- domMorph (proposalDriver u) dw
                             
-                            wt :: ES (WKey S, World S -> Ctx OtherT S (World S)) <- 
+                            wt  <- 
                                 fmap  (fmap fromSingleton . switch . current . fmap mergeMap) . 
-                                    listHoldWithKey (toState w) (updated ddw) $ \i b -> onlyInvolved u b $ do
-                                        ((,) i <$>) <$> rollable (fst i) (transaction u b)
+                                    listHoldWithKey (M.mapWithKey (\k b -> (b,maybe Rolled id $ M.lookup k im)) $ toState w) (updated ddwi) $ \i (b,r) -> onlyInvolved u b $ do
+                                        e <- rollable r (fst i) (transaction u b)
+                                        return $ merge [LeftG :=> ((,) i <$> pick LeftG e),
+                                            RightG :=> (,) i <$> attachWith (\w f -> fromRight (f w)) (current dw) (pick RightG e)]
 
-                    return $ leftmost [wo,attachWith (\w (i,f) -> (i,fromRight $ f w)) (current dw) wt]
-            cu <- holdDyn (mempty,Nothing) $ attach (current dw) $ updated du
-            cwe :: ES (WKey S, World S) <- domMorph f $ cu 
+                    return $ leftmost [wire' RightG  wo,wt]
+            cu <- holdDyn (mempty,(mempty,Nothing)) $ attach (current icons) $ attach (current dw) $ updated du
+            cwe <- domMorph f $ cu 
 
-        performEvent_ $ (\e -> liftIO (putStrLn $ "number of updates:" ++ show (M.size e))) <$> updated ddw
-        divClass "footer" . divClass "footer-fields" $ do 
+{-        divClass "footer" . divClass "footer-fields" $ do 
         
             divClass "copyright" $ text "Paolo Veronelli ©"
             divClass "code-link" $ elAttr "a" [("href","https://github.com/paolino/book-a-visit")] $ text "code repository"
             divClass "code-api" $ elAttr "a" [("href","http://lambdasistemi.net/public/book-a-visit.jsexe/api")] $ text "api"
-
+-}
         return ()
 

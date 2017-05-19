@@ -71,17 +71,17 @@ openWidget
       -> m (Cable (EitherG () (Slot a, World a)))
 openWidget u step = el "ul" $ do
   -- zone <-  el "li" $ valueInput "where" readMaybe
-  zone <- el "li" $ do
-      elAttr "span" [("class","field")] $ text "where"
-      divClass "radiochecks" $ radioChecks $ [minBound .. maxBound]
-  -- time :: DS (Maybe (Slot a)) <-  el "li" $ valueInput "when" readMaybe
   time <- el "li" $ do
     elAttr "span" [("class","field")] $ text "when"
-    getInput
+    divClass "timeshow"  $ getInput
+  zone <- el "li" $ do
+      elAttr "span" [("class","field")] $ text "where"
+      divClass "placeshow" $ divClass "radiochecks" $ radioChecks $ [minBound .. maxBound]
+  -- time :: DS (Maybe (Slot a)) <-  el "li" $ valueInput "when" readMaybe
   -- camera
   bargain <- el "li" $ do
     elAttr "span" [("class","field")] $ text "what"
-    valueInput "10 chars, minimum" validWhat
+    divClass "bargainshow" $ valueInput "10 chars, minimum" validWhat
 
   (sub,close) <- el "li" . floater $ do
     sub <- submit (fmap (all id) . sequence $ (isJust <$> time): (isJust <$> zone): [isJust <$> bargain])

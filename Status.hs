@@ -174,6 +174,7 @@ data Overdue a = Ok (Feedback a) | NoShow | Expired | Renounce
 
 deriving instance Show (Feedback a) => Show (Overdue a)
 
+
 data Summary u a = Summary {
   _proposal :: ProposalData u a,
   _acceptance :: Maybe (AcceptanceData (Opponent u) a),
@@ -218,7 +219,7 @@ through f (EGiver x) = f x
 through f (ETaker x) = f x
 
 instance  SummaryC Absent a where
-  summary (Aborted b) = summary `throughP` b
+  summary (Aborted b) = set feedback (Just Expired) `onBoth` (summary `throughP` b)
   summary (Waiting p) = summary `throughP` p
   summary (ChattingWaiting p x) = over chat (x:) `onBoth`  (summary p) where
   summary (Dropped p) = set feedback (Just Renounce) `onBoth` summary p

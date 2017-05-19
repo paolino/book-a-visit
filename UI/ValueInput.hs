@@ -56,8 +56,8 @@ import Control.Monad.Reader
 
 import UI.Constraints
 import HList
-white = "background-color:#fff;color:#333"
-green = "background-color:#d09557"
+white = "place-unselected"
+green = "place-selected"
 
 checkColor ::  Int -> DS (Maybe Int) -> DS Text
 checkColor n d = let
@@ -69,7 +69,7 @@ radioChecks :: forall a m r. (MS m, HasIcons m a,MonadReader (DS r) m, In Bool r
 radioChecks xs = do
   rec   ixe :: ES (Int,a) <- fmap leftmost $ el "ul" $ forM (zip [0 ..] xs) $ \(i,x) ->
 
-                    elDynAttr "li" (fmap (M.singleton  "style") . checkColor i $ fmap fst <$> ixd)  $
+                    elDynAttr "li" (fmap (M.singleton  "class") . checkColor i $ fmap fst <$> ixd)  $
                       (fmap $ ((i,x) <$)) $ divClass "radiochecks-icon" $ (x <$) <$> getIcon x
 
         let f :: (Int,a) -> Maybe (Int,a) -> Maybe (Int,a)

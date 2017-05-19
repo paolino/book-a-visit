@@ -38,6 +38,7 @@ import Data.IORef
 import Control.Monad.Trans
 import Data.Either
 import Control.Monad.Reader
+import Control.Monad.Identity
 
 import HList
 -------  reflex missings --------------
@@ -108,6 +109,12 @@ instance GCompare (EitherG r l) where
   RightG `gcompare` RightG = GEQ
   LeftG `gcompare` LeftG = GEQ
 
+-- onEithersG :: (r -> r') -> (l -> l') -> DSum (EitherG l r) f -> DSum (EitherG l' r') f
+onEithersG :: (r -> r') -> (l -> l') -> (forall f. Functor f => DSum (EitherG l r) f -> DSum (EitherG l' r') f)
+onEithersG fr fl (RightG :=> x) = RightG :=> ( fr <$>  x)
+onEithersG fr fl (LeftG :=> x) = LeftG :=> (fl <$> x)
+-- eithersG :: (r -> r') -> (l -> l') -> DSum (EitherG l r) ES -> DSum (EitherG l' r') ES
+-- eithersG = onEithersG 
 rightG b = wire (RightG :=> b)
 leftG b = wire (LeftG :=> b)
 
