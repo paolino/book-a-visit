@@ -17,14 +17,7 @@
 
 ### How do I get set up? ###
 
-* Setting up (as in compile) requires a fully working [haskell](http://haskell.org) box with _stack_ building tool
-
-## Native application
-* Run `stack setup && stack build && stack exec book-a-visit` in the directory for a gtk executable (Linux only)
-
-## Browser application
-* Run `stack setup --stack-yaml stack.js.yaml && stack build --stack-yaml stack.js.yaml` for a browser application
-* Point the browser `firefox .stack-work/install/x86_64-linux/lts-7.19/ghcjs-0.2.1.9007019_ghc-8.0.1/bin/book-a-visit.jsexe/index.html` changing the platform directory if you are on OSX or Windows
+* Setting up (as in compile) requires a [reflex-platform](https://github.com/reflex-frp/reflex-platform) enabled machine.
 
 ## Test online
 * Point the browser to [service (alpha)](http://lambdasistemi.net/public/book-a-visit.jsexe)
@@ -35,6 +28,3 @@
 * project: [patrizio iezzi](mailto://patrizioiezzi@gmail.com)
 
 
-### Random Links ###
-
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
