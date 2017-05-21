@@ -8,8 +8,6 @@
 module Constraints where
 
 import Status
-import Data.Default
-import UI.Lib
 
 type Showers a = ( Show (Zone 'Giver a), Show (Zone Taker a),Show (Part Giver a) ,
   Show (Part Taker a), Show (Slot a), Bargain a ~ String,  Show (Feedback a),

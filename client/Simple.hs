@@ -19,7 +19,7 @@
 {-# language ViewPatterns #-}
 {-# language OverloadedLists #-}
 
-module Instance.Simple where
+module Simple where
 
 import Data.Bifunctor
 import Control.Lens hiding (dropping)
@@ -46,35 +46,7 @@ import UI.Lib
 import Instance.Date
 import Reflex.Dom hiding (Abort)
 import Control.Monad.Reader
-instance Valid (Zone Giver S) (Place Taker S) where
-  valid Anywhere _ = True
-  valid Here AtYourWorkshop = True
-  valid There AtMyHome = True
-  valid _ _ = False
-
-instance Valid (Zone Taker S) (Place Giver S) where
-  valid Anywhere _ = True
-  valid Here AtYourHome = True
-  valid There AtMyWorkshop = True
-  valid _ _ = False
-{-
--}
-data S
-
----------- example -------------------------------
-type instance Bargain S = String
-data instance Part Taker S = Client String deriving (Show,Eq)
-data instance Part Giver S = Business String deriving (Show,Eq)
-type instance Chat S = String
-data instance Zone u S = Here | There | Anywhere deriving (Read, Show, Bounded,Enum)
-data instance Place Taker S = AtMyHome | AtYourWorkshop deriving (Read, Show, Bounded,Enum)
-data instance Place Giver S = AtMyWorkshop | AtYourHome deriving (Read, Show, Bounded, Enum)
-type instance Slot S = Date
--- type instance Time S = (Float)
-type instance Feedback S = String
-
-fromBusiness (Business s) = s
-fromClient (Client s) = s
+import Instance.Simple
 
 instance ShowPart S where
   showPart (ETaker (Client p)) = do
@@ -114,7 +86,6 @@ instance (MonadReader (DS Bool) m,MS m) => HasIcons  m (Place Taker S) where
 instance  (MonadReader (DS Bool) m,MS m) => HasIcons m (Place Giver S) where
   getIcon AtYourHome = ihome
   getIcon AtMyWorkshop = iworkshop
-deriving instance Show (World S)
 
 
 

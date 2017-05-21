@@ -1,6 +1,7 @@
 js:
 	cabal build
 	cp index.html book-a-visit.jsexe/
+	cp book-a-visit.jsexe/style.css .
 	
 populate:
 	cabal configure --ghcjs

@@ -1,4 +1,4 @@
-# Revision history for book-a-visit
+# Revision history for server
 
 ## 0.1.0.0  -- YYYY-mm-dd
 

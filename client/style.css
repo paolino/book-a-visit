@@ -2,7 +2,7 @@ body{
   margin;
   margin-top:0em;
   font-family: 'Enriqueta', arial, serif
-  ;line-height: 1.25;
+  ;/*! line-height: 1.25; */
   }
 
 .yeslogin {
@@ -27,7 +27,14 @@ body{
 }
 .propose {
     padding-top:1em;
-
+padding:0.5em;
+  margin:0.2em;
+  /*! background: #ccc; */
+  border-radius: 4px;
+ 
+    text-shadow: 0 1px rgba(255,255,255,0.7);
+    font-size:100%;
+  border:4px solid brown;
 }
 
 .radiochecks ul {
@@ -45,6 +52,58 @@ h3 {
   font-size:150%;
 }
 
+.unrolled{
+  padding:0.5em;
+  margin:0.2em;
+  background: #c5cea8;
+  border-radius: 4px;
+ 
+    text-shadow: 0 1px rgba(255,255,255,0.7);
+    font-size:100%;
+    /*! border:1px solid #ee88ee; */
+      /*! outline: 1px solid #ffbbff; */
+  
+}
+.rolled{
+ padding:0.5em;
+  margin:0.2em;
+  background: #c5cea8;
+  height:3em;
+  border-radius: 4px;
+ 
+    text-shadow: 0 1px rgba(255,255,255,0.7);
+    font-size:100%;
+ 
+  
+}
+.rolled .slot {
+  margin:0.4em;
+  font-size:120%
+}
+.rolling {
+  padding:0em;
+  float:right;
+  margin:0em;
+  /*! background:white; */
+  opacity:0.7;
+  border-radius:10em;
+}
+.rolling .combo-container {
+  height:1em;
+}
+.rolling .fa-arrow-down {
+  font-size:1.5em;
+  color: black;
+}
+.rolling .fa-arrow-up {
+  font-size:1.5em;
+    color:black;
+}
+
+.record ul li {
+  border-bottom:1px solid;
+  margin-top:0.5em;
+}
 button  {
    
   padding:0.5em;
@@ -84,7 +143,8 @@ div.small {
 
 input {height:2em;
   display: block;
-  width:100%;
+  width:95%;
+  margin-left:2.5%;
   color:black;
   border: 1px solid rgba(255,255,255,0.6)!important;
   height:2.5em;   
@@ -93,13 +153,17 @@ input {height:2em;
   color: #555;
   border-radius: 4px;
   }
-
+.login {
+  background-color: white;
+  /*! padding:0px; */
+  /*! margin:-2px; */
+}
 .fakelogin {
   z-index:1;
-    background:whitesmoke;
-    border: 1px solid #cca1a1;
+    #background:#ddf;
+    #border: 1px solid #cca1a1;
     border-radius:4px;
-    outline: 2px solid #d2c8c8;
+    #outline: 2px solid #d2c8c8;
   
     padding:0.5em;
     position:absolute;
@@ -134,25 +198,74 @@ margin-left:0.2em;
 }
 div.login-button {
 
- 
-  padding:0.5em;
-  margin:0.1em;
+  border-bottom:1px solid grey;
+  padding:0.7em;
+  /*! margin:0.1em; */
 
 
-  border-radius: 4px;
+  border-radius: 0px;
  
     text-shadow: 0 1px rgba(255,255,255,0.7);
     font-size:100%;
     cursor:pointer;
 }
-.field {color:grey;font-size:70%;}
+.opponent {
+  display:inline;
+  margin-left:1em;
+    color:black;
+
+}
+.other {
+  display:inline;
+  margin-left:1em;
+    color:black;
+
+}
+.timeshow {
+  display:inline-table;  
+  /*! margin-top:0.5em; */
+    /*! margin-bottom:0.5em; */
+    margin-left:1em;
+  color:black;
+}
+.placeshow {
+  display:inline-table;
+    /*! margin-top:0.5em; */
+      /*! margin-bottom:0.5em; */
+  color:black;
+
+   margin-left:1em;
+}
+.bargainshow {
+  
+  margin-left:1em;
+  margin-top:0.5em;
+  display:inline-table;
+    color:black;
+
+}
+.field {
+  color:#444;
+  font-size:70%;
+  display:inline;
+  }
 .section .propose ul li{
   border-width:0px;
   border-bottom-width:1px;
   border-style:solid;
   border-color:#ab9393
 }
-
+.fa-paper-plane-o {
+  color:blue;
+}
+.fa-close {
+  color:black;
+}
+.chat-input .combo-buttons {
+  background-color: transparent;
+  border:0;
+  outline:0;
+}
 
 
 .select-day  ul  li {
@@ -199,30 +312,18 @@ div .hints {
 .abort ul{border-width:0px;}
 
 .info {
-      border: 1px solid #ff3b3b;
+      /*! border: 1px solid #ff3b3b; */
     border-radius:4px;
   
   position:fixed;
   top:0.1em;
-  background:#e8b1e7;
+  background:#f5eff4;
   opacity:0.9;
   padding: 0.3em;
   border-radius:15em;
 }
-.abort ul li {
-  border-width:0px;
-  border-bottom-width:1px;
-  border-style:solid;
-}
-.finals ul{border-width:0px;}
 
-.finals ul li {
-  border-width:0px;
-  border-bottom-width:1px;
-  border-style:solid;
-}
-.summary ul {border-bottom-width:0px;}
-.summary ul li {border-bottom-width:0;}
+
 
 .login i {
   color:green;
@@ -249,15 +350,18 @@ div .hints {
 
 .compose-x {display:inline;}
 
-.compose-plus {
+.compose-plus{
     display:inline;
 
     color:grey;
     position:relative;
     top:1em;
     
+    
     }
-
+.compose-plus i {
+  font-size:1em;
+}
 .compose-y {display:inline;margin-left:0em;
 
 }
@@ -271,14 +375,25 @@ margin:0px;
  
 
 }
+.place-selected {
+  background-color: #f88;
+}
 .fa-check {color:green;}
-
+.fa-home {
+  color:black;
+}
+.fa-3x {
+  font-size: 2.3em;
+}
+.explanation {
+  font-size:60%;
+}
 .combo-buttons {
   display:inline-flex;
-      background:whitesmoke;
-     border: 1px solid #cca1a1;
+      #background:whitesmoke;
+     #border: 1px solid #cca1a1;
     border-radius:4px;
-    outline: 2px solid #d2c8c8;
+    #outline: 2px solid #d2c8c8;
     clear:both;
     padding:0.5em;
  
@@ -292,25 +407,96 @@ margin:0px;
   height:5.6em;
 }
 .combo-container{
-  height:4.4em;
+  height:3.5em;
 }
 .icon-box{
   padding:0em;
   display:inline;
-  
 }
 .icon-box:nth-child(2){
   margin-left:2em;
 }
-.icon {display:block;}
+.icon {display:block;
+    padding-bottom:0.1em;
+
+}
 
 .propose > .combo-container > .combo-buttons {
   float:inherit;
-  bottom:1em;
-  left:1em;
+  /*! bottom:1em; */
+  left:0em;
 }
 .propose > .combo-containerHints > .combo-buttons {
   float:inherit;
   bottom:1em;
   left:1em;
+}
+.footer {
+  border-top:1px solid rgb(85,85,85);
+  border-bottom:1px solid rgb(85,85,85);
+  background-color:aliceblue;
+  height:3em;
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  padding-top:0.1em;
+ 
+}
+.footer-fields{
+}
+.code-link a {
+  #text-decoration: none;
+  font-size:80%;
+  color:rgb(85,85,85);
+  position:absolute;
+  left:0em;
+  top:1.1em;
+}
+.code-api a {
+  #text-decoration: none;
+  font-size:80%;
+  color:rgb(85,85,85);
+  position:absolute;
+  left:0em;
+  top:2.0em;
+}
+.copyright {
+  text-decoration: none;
+  font-size:80%;
+  color:rgb(85,85,85);
+  position:absolute;
+  left:0em;
+}
+.chats {
+  margin:1em;
+}
+.message {
+  margin-left:1em;
+}
+.chats ul li {
+  border-color:white;
+}
+.Abortable {
+   background-color: white; 
+   color:red;
+    border:4px solid red;
+
+}
+.Acceptable {
+  background-color: white; 
+  color:green;
+  border:4px solid green;
+}
+
+.WaitingColor {
+  background-color: white; 
+  color:blue;
+  border:4px solid blue;
+}
+
+.question  {
+  font-style:oblique;
+  color:black;
+  
 }

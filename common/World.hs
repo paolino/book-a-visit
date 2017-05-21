@@ -47,7 +47,9 @@ data World a = World
   ,   _serving        ::  MapW ServingT Absent a
   ,   _releasing      ::  MapW ReleasingT Absent a
   ,   _final          ::  MapW FinalT Absent a
-  }
+} 
+
+deriving instance (Showers a) => Show (World a)
 
 
 makeLenses ''World
